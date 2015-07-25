@@ -1,0 +1,87 @@
+<!doctype html>
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>CP-Net Visualizer</title>
+		<meta name="description" content="Visualizes a CP-Net as a force-directed graph">
+		<meta name="author" content="Aidan Shafran">
+		<link rel="stylesheet" href="style.css?v=1.0">
+
+		<!--[if lt IE 9]>
+		<script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+		<!-- Main SVG (background) -->
+		<div id="main-svg-dragger"></div>
+
+		<svg id="main-svg">
+			<g id="main-svg-graph">
+				<g id="crosshair"> <!-- Center marker -->
+					<line x1="-5px" y1="0" x2="5px" y2="0px" />
+					<line x1="0px" y1="-5px" x2="0px" y2="5px" />
+				</g>
+				<g id="aftercrosshair"></g> <!-- Create an empty child here to allow insertions immediately after the crosshair -->
+			</g>
+		</svg>
+
+		<!-- UI panels -->
+		<div class="panel" id="options-panel">
+			<p class="header">controls</p>
+			<input type="button" id="add-node-button" value="Add Root Node" onclick="AddNodeButtonClicked()"/>
+			<input type="button" id="delete-node-button" value="Delete Selected Node" onclick="RemoveNodeButtonClicked()" disabled/>
+			<input type="button" id="link-node-button" value="(Un)Link Selected Node to..." onclick="LinkNodesButtonClicked()" disabled/>
+			<input type="button" id="affix-node-button" value="Affix Selected Node" onclick="AffixNodeButtonClicked()" disabled/>
+			<div class="smallspacer"></div>
+			<input type="button" value="Center Viewport" onclick="CenterViewport()"/>
+			<div class="spacer"></div>
+			
+			<p class="header">options</p>
+			<input type="checkbox" id="allow-cycles-checkbox" onchange="AllowCyclesCheckChanged()"/> <p class="inlinetext">Allow Cycles</p><br>
+			<input type="checkbox" id="autodetect-degeneracy-checkbox" onchange="AutodetectDegeneracyCheckChanged()" checked/> <p class="inlinetext">Autodetect Degeneracy</p><br>
+			<input type="number" id="max-in-nodes-selector" min=1 max=20 value=5 style="margin-top:0.3em;width:5em;" onchange="MaxInNodesSelectorChanged()"/> <p class="inlinetext">Max In-Nodes</p><br>
+			<div class="spacer"></div>
+
+			<p class="header" style="margin-bottom:0;">loading and saving</p>
+			<p class="header" style="margin-bottom:0.8em;font-size:0.8em;" id="saved-notifier" >currently saved</p>
+			<input type="text" id="cp-net-name-input" placeholder="CP-Net Name">
+			<div class="smallspacer"></div>
+			<input type="button" value="New CP-Net" onclick="LoadNewCPNet()"/>
+			<div class="smallspacer"></div>
+			
+			<input id="file-upload" type="file" style="display:none;"/>
+			<input type="button" value="Load CP-Net from File" onclick="LoadCPNetFromFile()"/>
+			<input type="button" value="Save CP-Net as XML" onclick="SaveCPNetAsXML()"/>
+		</div>
+
+		<div class="panel" id="nodeinfo-panel">
+			<p class="header" id="node-name-display">no selected node</p>
+			<input type="text" id="node-name-input" oninput="NodeNameInputChanged()" placeholder="Node Name"/>
+
+			<div class="spacer"></div>
+			<p class="header">domain - one per line</p>
+			<textarea id="domain-list-textarea" onchange="DomainInputChanged()" rows="40" cols="40"></textarea>
+
+			<div class="spacer"></div>
+			<p class="header">parents</p>
+
+			<table id="parents-list-table" cellpadding="0" cellspacing="0"></table>
+
+			<div class="spacer"></div>
+			<p class="header">conditional<br>preference table</p>
+			<table id="cpt-table" cellpadding="0" cellspacing="0"></table>
+		</div>
+
+		<p id="message-bar"></p>
+
+		<!-- Now load the scripts -->
+		<script src="https://cdn.rawgit.com/eligrey/Blob.js/master/Blob.js"></script>
+		<script src="https://cdn.rawgit.com/eligrey/FileSaver.js/master/FileSaver.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
+		<script src="webcola.js"></script> <!-- webcola is modified from the standard -->
+		<script src="graph.js"></script>
+		<script src="gui.js"></script>
+	</body>
+</html>

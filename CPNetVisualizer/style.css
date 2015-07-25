@@ -1,0 +1,229 @@
+/*
+General
+*/
+
+html, body
+{
+	height :100%;
+	width :100%;
+	margin: 0;
+	padding: 0;
+	font-family:sans-serif;
+}
+
+p, button, input, select, textarea
+{
+	font-family: sans-serif;
+	box-sizing: border-box;
+}
+
+
+
+/*
+SVG
+*/
+
+#main-svg
+{
+	display: block;
+	position: absolute;
+	pointer-events: none;
+	width: 100%;
+	height: 100%;
+}
+#main-svg-graph
+{
+	pointer-events: visible;
+	width: 100%;
+	height: 100%;
+}
+#main-svg-dragger
+{
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: white;
+}
+
+.node
+{
+	stroke: #fff;
+	stroke-width: 1.5px;
+}
+.link
+{
+	fill: none;
+	stroke: #000;
+	stroke-width: 1.5px;
+	opacity: 0.4;
+	marker-end: url(#end-arrow);
+}
+
+svg #crosshair line
+{
+	stroke: lightgreen;
+	stroke-width: 2;
+}
+
+
+
+/*
+Message bar
+*/
+
+#message-bar
+{
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	padding-top: 10px;
+	padding-left: 210px;
+	padding-right: 210px;
+
+	text-align: center;
+	word-wrap:break-word;
+}
+
+
+
+/*
+Side panel
+*/
+
+.panel
+{
+	position: absolute;
+	top: 0;
+	margin: 0;
+	padding: 10px;
+
+	box-sizing: border-box;
+
+	width: 200px;
+	height: 100%;
+	
+	background-color:#DFDFDF;
+	border-color: #999999;
+	opacity: 0.95;
+
+	overflow-y:auto;
+}
+
+#options-panel
+{
+	left: 0;
+	border-right: 2px solid;
+}
+
+#nodeinfo-panel
+{
+	right: 0;
+	border-left: 2px solid;
+}
+
+.panel .header
+{
+	width: 100%;
+	text-align: center;
+	margin: 0;
+	margin-bottom: 0.5em;
+	padding: 0;
+}
+
+.panel .inlinetext
+{
+	font-size: 0.8em;
+	display: inline;
+}
+
+.panel input[type="button"]
+{
+	width: 100%;
+}
+
+.panel .spacer
+{
+	height: 1.5em;
+}
+
+.panel .smallspacer
+{
+	height: 0.2em;
+}
+
+.panel input[type="text"]
+{
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.panel textarea
+{
+	width: 100%;
+	height: 4.5em;
+	min-height: 4.5em;
+	max-height: 20em;
+	resize: vertical;
+	white-space: nowrap;
+	overflow: auto;
+	border: 1px solid gray;
+	background-color: white;
+	font-size: 0.7em;
+	padding: 4px;
+}
+
+.panel table
+{
+	width: 100%;
+	background-color: white;
+	border: 1px solid gray;
+	border-sizing: border-box;
+	padding: 5px;
+}
+
+
+
+/*
+Parents and CPT tables
+*/
+
+#parents-list-table img
+{
+	width: 0.8em;
+	vertical-align: middle;
+	cursor: pointer;
+}
+#parents-list-table p
+{
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	margin-bottom: 2px;
+	padding: 0;
+	font-size: 0.8em;
+	white-space: nowrap;
+}
+
+#cpt-table p
+{
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	font-size: 0.7em;
+	white-space: nowrap;
+}
+
+.cpt-table-row, .parents-table-row
+{
+	background-color: white;
+}
+.cpt-table-row:hover, .parents-table-row:hover
+{
+	background-color: lightgray;
+}
