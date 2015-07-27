@@ -47,20 +47,6 @@ SVG
 	background-color: white;
 }
 
-.node
-{
-	stroke: #fff;
-	stroke-width: 1.5px;
-}
-.link
-{
-	fill: none;
-	stroke: #000;
-	stroke-width: 1.5px;
-	opacity: 0.4;
-	marker-end: url(#end-arrow);
-}
-
 svg #crosshair line
 {
 	stroke: lightgreen;
@@ -219,11 +205,21 @@ Parents and CPT tables
 	white-space: nowrap;
 }
 
-.cpt-table-row, .parents-table-row
+.cpt-table-item, .cpt-table-item-noclick, .cpt-table-item-disabled
+{
+	display: inline;
+}
+.cpt-table-item-disabled
+{
+	color:gray;
+}
+.cpt-table-item, .parents-table-row, .cpt-table-item-disabled
 {
 	background-color: white;
+	cursor: pointer;
 }
-.cpt-table-row:hover, .parents-table-row:hover
+.cpt-table-item:hover, .parents-table-row:hover, .cpt-table-item-disabled:hover
 {
 	background-color: lightgray;
+	cursor: pointer;
 }

@@ -10,15 +10,15 @@ var D3CoLa = cola.d3adaptor().avoidOverlaps(true).flowLayout("y", 60).symmetricD
 var D3Svg = d3.select("#main-svg-graph");
 D3Svg.append('svg:defs') // Define arrow markers for graph links
 	  .append('svg:marker')
-	  .attr('id', 'end-arrow')
-	  .attr('viewBox', '0 -5 10 10')
-	  .attr('refX', 8)
-	  .attr('markerWidth', 6)
-	  .attr('markerHeight', 6)
-	  .attr('orient', 'auto')
-	  .append('svg:path')
-	   .attr('d', 'M0,-5L10,0L0,5')
-	   .attr('fill', '#000');
+	   .attr('id', 'end-arrow')
+	   .attr('viewBox', '0 -5 10 10')
+	   .attr('refX', 8)
+	   .attr('markerWidth', 6)
+	   .attr('markerHeight', 6)
+	   .attr('orient', 'auto')
+	   .append('svg:path')
+	    .attr('d', 'M0,-5L10,0L0,5')
+	    .attr('fill', '#000');
 
 // Get elements
 var MainSVG = document.getElementById("main-svg");
@@ -225,9 +225,79 @@ function SelectParentItemClicked(ParentIndex)
 	SelectNode(SelectedNode.Parents[ParentIndex]);
 }
 
-function CPTListItemClicked(CPTListIndex)
+function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 {
-	console.log(CPTListIndex);
+	if(!SelectedNode)
+		return;
+
+	// Get the preference that was clicked
+	var CPTList = SelectedNode.ListCPT();
+	var Preference = CPTList[CPTListIndex].preference;
+
+	// If PreferenceIndex is odd, then it is a succeeds indicator, so toggle it
+	if(PreferenceIndex % 2 === 1)
+	{
+		// Toggle
+		Preference[PreferenceIndex] = !Preference[PreferenceIndex];
+
+		// Update GUI
+		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode); // Don't refresh the entire GUI, just the CPT table
+		return;
+	}
+
+	// If ToggleDisable, just toggle the disabled state on the item
+	if(ToggleDisable)
+	{
+		Preference[PreferenceIndex] = (-Preference[PreferenceIndex]) - 1;
+		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
+		return;
+	}
+
+	// If the item is disabled, don't do anything
+	if(Preference[PreferenceIndex] < 0)
+		return;
+
+	// Otherwise, it was a regular item. Find the next available index
+	// If none are found, Nextindex should be the same as when it started
+	var NextDomainIndex = Preference[PreferenceIndex];
+	for(var x=0;x<SelectedNode.Domain.length;++x) // Try once for each domain item
+	{
+		++NextDomainIndex;
+		if(NextDomainIndex >= SelectedNode.Domain.length)
+			NextDomainIndex = 0;
+		var used = false;
+		for(var i=0;i<PreferenceIndex;i+=2) // Do +2 since every other preference index is for the succeeds/succeeds-or-equal-to
+		{
+			if(NextDomainIndex === Preference[i] || NextDomainIndex === (-Preference[i] - 1))
+			{
+				used = true;
+				break;
+			}
+		}
+
+		if(!used)
+			break;
+	}	
+
+	// Check for no change
+	if(NextDomainIndex === Preference[PreferenceIndex])
+		return;
+
+	// Swap with any following indices
+	for(var i=PreferenceIndex+2;i<Preference.length;i+=2)
+	{
+		if(NextDomainIndex === Preference[i] || NextDomainIndex === (-Preference[i] - 1))
+		{
+			Preference[i] = Preference[PreferenceIndex];
+			break;
+		}
+	}
+
+	// Update the original index's domain value
+	Preference[PreferenceIndex] = NextDomainIndex;
+
+	// Update GUI
+	CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
 }
 
 
@@ -550,6 +620,9 @@ function UpdateGUI()
 			return "stroke:white;";
 	});
 
+	// Clear the message bar
+	MessageBar.innerHTML = " ";
+
 	// Change the GUI depending on if there is a selected node
 	if(SelectedNode)
 	{
@@ -567,69 +640,12 @@ function UpdateGUI()
 		NodeNameInput.value = SelectedNode.Name;
 		NodeNameInput.disabled = false;
 		DomainListTextarea.disabled = false;
-		DomainListTextarea.value = SelectedNode.Domain.join("\n");
 		DomainListTextarea.style.backgroundColor = "white";
+		DomainListTextarea.value = SelectedNode.Domain.join("\n");
 		ParentsListTable.style.backgroundColor = "white";
+		ParentsListTable.innerHTML = GenerateParentsListHTML(SelectedNode);
 		CPTTable.style.backgroundColor = "white";
-
-		// Set the parents list
-		var parentsListHTML = "";
-		for(var i=0;i<SelectedNode.Parents.length;++i)
-		{
-			parentsListHTML += "<tr class='parents-table-row' onclick='SelectParentItemClicked(" + i + ")'> <td width='10%'> <img src='removeitem.png' alt='Remove Node' onclick='RemoveParentNodeButtonClicked(" + i + ")'/> </td>";
-    		parentsListHTML += "<td width='90%'> <p>" + SelectedNode.Parents[i].Name + "</p>";
-
-    		for(var j=0;j<SelectedNode.Parents[i].Domain.length;++j)
-    			parentsListHTML += "<p style='font-size:0.6em;padding:0;'>&emsp;&emsp;" + String.fromCharCode(97 + i) + (j+1) + ": " + SelectedNode.Parents[i].Domain[j] + "</p>";
-    		parentsListHTML += "</td> </tr>";
-		}
-
-		// Create the add parent node button
-		if(SelectedNode.Parents.length < MaxInNodes)
-		{
-			// Get a list of nodes that could be added as parents to this node
-			// (cant add self or any current parents as parent nodes)
-			var addableNodes = [];
-			for(var i=0;i<GraphNodes.length;++i)
-				if(GraphNodes[i] !== SelectedNode && SelectedNode.Parents.indexOf(GraphNodes[i]) < 0)
-					addableNodes.push(GraphNodes[i]);
-
-			// Create the dropdown box and add button
-			if(addableNodes.length > 0)
-			{
-				// Add the addnode row
-				parentsListHTML += "<tr> <td width='10%'> <img src='additem.png' alt='Add Node' onclick='AddParentNodeButtonClicked()'> </td>";
-				
-				// Add the dropdown box
-				parentsListHTML += "<td width='90%'> <select id='addparent-dynamic-dropdown'>";
-				for(var i=0;i<addableNodes.length;++i)
-					parentsListHTML += "<option value=" + addableNodes[i].Name + ">" + addableNodes[i].Name + "</option>";
-				parentsListHTML += "</select> </td> </tr>";
-			}
-		}
-		ParentsListTable.innerHTML = parentsListHTML;
-
-		// Set the preference table
-		var cplist = SelectedNode.ListCPT(); // Get the CPT as a list
-		var cpttableHTML = "";
-
-		for(var i=0;i<cplist.length;++i)
-		{
-			// Get the condition string
-			var conditionStr = "";
-			for(var j=0;j<cplist[i].condition.length;++j)
-				conditionStr += String.fromCharCode(97 + j) + (cplist[i].condition[j]+1);
-
-			// Get the preference order string
-			var preferenceStr = "";
-			for(var j=0;j<cplist[i].preference.length;++j)
-				preferenceStr += (j==0 ? "" : " ≻ ") + SelectedNode.Domain[cplist[i].preference[j]];
-
-			// Add the row
-			cpttableHTML += "<tr class='cpt-table-row' onclick='CPTListItemClicked(" + i + ")'> <td width='1px'> <p>" + conditionStr + ":&nbsp;&nbsp;</p> </td>";
-    		cpttableHTML += "<td> <p>" + preferenceStr + "</p> </td> </tr>";
-    	}
-		CPTTable.innerHTML = cpttableHTML;
+		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
 	}
 	else
 	{
@@ -647,82 +663,88 @@ function UpdateGUI()
 		NodeNameInput.value = "";
 		NodeNameInput.disabled = true;
 		DomainListTextarea.disabled = true;
-		DomainListTextarea.value = "";
 		DomainListTextarea.style.backgroundColor = "#EEEEEE";
+		DomainListTextarea.value = "";
 		ParentsListTable.style.backgroundColor = "#EEEEEE";
 		ParentsListTable.innerHTML = "";
 		CPTTable.style.backgroundColor = "#EEEEEE";
 		CPTTable.innerHTML = "";
 	}
-
-	// Clear the message bar
-	MessageBar.innerHTML = " ";
 }
 
+function GenerateParentsListHTML(Node)
+{
+	// Generate the parents list
+	var HTML = "";
+	for(var i=0;i<Node.Parents.length;++i)
+	{
+		HTML += "<tr class='parents-table-row' onclick='SelectParentItemClicked(" + i + ")'> <td width='10%'> <img src='removeitem.png' alt='Remove Node' onclick='RemoveParentNodeButtonClicked(" + i + ")'/> </td>";
+		HTML += "<td width='90%'> <p>" + Node.Parents[i].Name + "</p>";
 
+		for(var j=0;j<Node.Parents[i].Domain.length;++j)
+			HTML += "<p style='font-size:0.6em;padding:0;'>&emsp;&emsp;" + String.fromCharCode(97 + i) + (j+1) + ": " + Node.Parents[i].Domain[j] + "</p>";
+		HTML += "</td> </tr>";
+	}
 
+	// Create the add parent node button
+	if(Node.Parents.length < MaxInNodes)
+	{
+		// Get a list of nodes that could be added as parents to this node
+		// (cant add self or any current parents as parent nodes)
+		var addableNodes = [];
+		for(var i=0;i<GraphNodes.length;++i)
+			if(GraphNodes[i] !== Node && Node.Parents.indexOf(GraphNodes[i]) < 0)
+				addableNodes.push(GraphNodes[i]);
 
-// // If I do a list of a1b2:c1>c2, then how do i link the nodes without user input of the links? 
+		// Create the dropdown box and add button
+		if(addableNodes.length > 0)
+		{
+			// Add the addnode row
+			HTML += "<tr> <td width='10%'> <img src='additem.png' alt='Add Node' onclick='AddParentNodeButtonClicked()'> </td>";
+			
+			// Add the dropdown box
+			HTML += "<td width='90%'> <select id='addparent-dynamic-dropdown'>";
+			for(var i=0;i<addableNodes.length;++i)
+				HTML += "<option value=" + addableNodes[i].Name + ">" + addableNodes[i].Name + "</option>";
+			HTML += "</select> </td> </tr>";
+		}
+	}
 
-// CPTs
-// -------------------
+	return HTML;
+}
 
-// Time of Day:
-// Afternoon > Morning 
+function GenerateCPTHTML(Node)
+{
+	var HTML = "";
 
-// Weather:
-// Fair > Rain
+	// Get the Node's CPT as a list
+	var CPList = Node.ListCPT();
 
-// Activity:
-// Afternoon-Fair : Cycling > TableTennis
-// Morning-Fair : TableTennis > Cycling
-// Afternoon-Rain : TableTennis > Cycling
-// Morning-Rain : TableTennis > Cycling
+	for(var i=0;i<CPList.length;++i)
+	{
+		// Get the condition string
+		var conditionStr = "";
+		for(var j=0;j<CPList[i].condition.length;++j)
+			conditionStr += String.fromCharCode(97 + j) + (CPList[i].condition[j]+1);
 
-// Friend:
-// Cycling : Emily > Henry
-// TableTennis : Henry > Emily
+		// Add the condition
+		HTML += "<tr> <td width='1px'> <p>" + conditionStr + ":&nbsp;&nbsp;</p> </td> <td>";
 
+		// Add the preference
+		for(var j=0;j<CPList[i].preference.length;++j)
+		{
+			if(j%2 === 1)
+				HTML += "<p class='cpt-table-item' onclick='CPTListItemClicked(" + i + "," + j + ");event.preventDefault();'> " + (CPList[i].preference[j] ? "≽" : "≻") + " </p>";
+				//HTML += "<p class='cpt-table-item-noclick'> ≻ </p>";
+			else// if(j < CPList[i].preference.length - 1)
+				HTML += "<p class='cpt-table-item" + (CPList[i].preference[j] < 0 ? "-disabled" : "") + "' onclick='CPTListItemClicked(" + i + "," + j + ", event.shiftKey);event.preventDefault();'>" + Node.Domain[CPList[i].preference[j] < 0 ? (-CPList[i].preference[j] - 1) : CPList[i].preference[j]] + "</p>";
+			//else
+			//	HTML += "<p class='cpt-table-item-noclick'>" + Node.Domain[CPList[i].preference[j]] + "</p>";
+				
+		}
 
-// PREFERENCE STATEMENTS
-// -------------------
+		HTML += "</td> </tr>";
+	}
 
-// Time of Day:
-// Afternoon > Morning
-
-// Weather:
-// Fair > Rain
-
-// Activity:
-// Cycling > TableTennis when Time of Day = Afternoon and Weather = Fair // Exactly the same thing as the CPTs, just in an easier to read form
-// TableTennis > Cycling when Time of Day = Morning and Weather = Fair
-// TableTennis > Cycling when Time of Day = Afternoon and Weather = Rain
-// TableTennis > Cycling when Time of Day = Morning and Weather = Rain
-
-// // Do I need to store every possible preferene statement? or can the defaults be generated from the parent nodes, and only store the modified ones?
-// // If so, what are "defaults"? In the "simple" form above, there are conflicts. Such as, what is preferred when it's Afternoon and Raining? Is there a way to resolve that without user input?
-
-// // With the CPT form, is it possible to list continuous preferences, such as "Cycling > TableTennis when Time of Day > 2pm and Weather = Fair"?
-
-
-// Build a default CP-Net
-	// var WeatherNode = 	{"name":"Weather", 		"domain":["Fair", "Rain"], 			"preferences":[]};
-	// var TimeNode = 		{"name":"Time Of Day", 	"domain":["Morning", "Afternoon"], 	"preferences":[]};
-	// var ActivityNode = 	{"name":"Activity", 	"domain":["Cycling", "TableTennis"],"preferences":[]};
-	// var FriendNode = 	{"name":"Friend", 		"domain":["Emily", "Henry"], 		"preferences":[]};
-
-	// WeatherNode.preferences.push({"id":"p1", "order":[0, 1]});
-
-	// TimeNode.preferences.push({"id":"p2", "order":[0, 1]});
-
-	// ActivityNode.preferences.push({"id":"p3", "order":[1,0], "when":[0, WeatherNode]},
-	// 							  {"id":"p4", "order":[0,1], "when":[1, WeatherNode]},
-	// 							  {"id":"p5", "order":[1,0], "when":[1, TimeNode]},
-	// 							  {"id":"p6", "order":[0,1], "when":[0, TimeNode]});
-
-	// FriendNode.preferences.push({"id":"p7", "order":[0,1], "when":[0, ActivityNode]},
-	// 							{"id":"p8", "order":[1,0], "when":[1, ActivityNode]});
-
-	// SelectNode(null);
-	// GraphNodes = [WeatherNode, TimeNode, ActivityNode, FriendNode];
-	// UpdateGraph();
+	return HTML;
+}

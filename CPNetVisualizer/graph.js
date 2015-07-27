@@ -232,7 +232,11 @@ function Node(Name_)
 		// TEMP: FILL CPT
 		var pref = [];
 		for(var i=0;i<this.Domain.length;++i)
-			pref[i] = i;
+		{
+			pref.push(i);
+			if(i<this.Domain.length-1)
+				pref.push(0);
+		}
 
 		var cplist = this.ListCPT();
 		for(var i=0;i<cplist.length;++i)
@@ -250,7 +254,7 @@ function Node(Name_)
 
 		if(this.Parents.length == 0)
 			return [];
-		if(Dimension.length >= this.Parents.length)// || !CPTSection.isArray())
+		if(Dimension.length >= this.Parents.length || !Array.isArray(CPTSection))
 			return {"condition":Dimension, "preference":CPTSection};
 
 		var List = [];
@@ -267,10 +271,7 @@ function Node(Name_)
 
 	this.SetPreference = function (Condition, Preference)
 	{
-		//if(!Condition.isArray() || !Preference.isArray())
-		//	return;
-
-		if(Condition.length != this.Parents.length)
+		if(!Array.isArray(Condition) || !Array.isArray(Preference) || Condition.length != this.Parents.length)
 			return;
 
 		var PrevPref = this.CPT;
@@ -281,6 +282,17 @@ function Node(Name_)
 		for(var i=0;i<Preference.length;++i)
 			PrevPref[i] = Preference[i];
 	}
+
+	this.GetPreference = function (Condition)
+	{
+		if(!Array.isArray(Condition) || Condition.length != this.Parents.length)
+			return null;
+
+		var PrevPref = this.CPT;
+		for(var i=0;i<Condition.length;++i)
+			PrevPref = PrevPref[Condition[i]];
+		return PrevPref;
+	}
 }
 
 /*
@@ -288,7 +300,8 @@ Condition:
 [parent1domainindex, parent2domainindex, ...]
 
 Preference:
-[domainindex, domainindex, domainindex, ...]
+[domainindex, succeedsorequalto ? 1 : 0, domainindex, [1...], domainindex, ...]
+if disabled, the domain index will be (-domainindex - 1)
 
 A preference statement:
 [condition, value]
