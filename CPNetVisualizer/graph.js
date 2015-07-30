@@ -1,56 +1,8 @@
 var AllowCycles = false; // Can be set by GUI
 var MaxInNodes = 5; // Can be set by GUI
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////
-// CYCLE DETECTION
-////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Returns true if the graph contains any cycles anywhere, false otherwise
-// You should NOT call ClearCyclesVisited() after calling this
-function DoesGraphHaveCycle(GraphNodes)
-{
-	// Run IsNodeCyclic on every node in the graph
-	for(var i=0;i<GraphNodes.length;++i)
-		if(IsNodeCyclic(GraphNodes[i]))
-			return true;
-	return false;
-}
-
-// Returns true if the given StartingNode is part of a cycle.
-// Do not pass any argument to CurrentNode or VisitedNodes.
-// Always call ClearCyclesVisited() after calling this (or clear the cycle_detect_visited tag from all involved nodes)
-function IsNodeCyclic(StartingNode, CurrentNode, VisitedNodes)
-{
-	// If we've reached the StartingNode, there is a cycle
-	if(StartingNode === CurrentNode)
-		return true;
-
-	// Set starting values
-	if(!CurrentNode)
-		CurrentNode = StartingNode; // If this is the first iteration, make the StartingNode current
-	if(!VisitedNodes)
-		VisitedNodes = [];
-
-	// Exit if this node has already been visited
-	if(VisitedNodes.indexOf(CurrentNode) >= 0)
-		return false;
-
-	// Add this node to the visited nodes list
-	VisitedNodes.push(CurrentNode);
-
-	// Recurse on all parents
-	for(var i=0;i<CurrentNode.Parents.length;++i)
-		if(IsNodeCyclic(StartingNode, CurrentNode.Parents[i], VisitedNodes)) // If a cycle was found, return true immediately
-			return true;
-
-	return false;
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////
-// NODE MANAGEMENT FUNCTIONS
+// NODE CLASS
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 function Node(Name_)
@@ -93,6 +45,8 @@ function Node(Name_)
 		for(var i=0;i<this.Domain.length;++i)
 			DomainIndexChanges[i] = Domain.indexOf(this.Domain[i]);
 		
+		// Ignore this. It's just to make setting the domain a little easier on the user, it is completely optional
+		// The 'else' part of this if statement is not optional, however. If this 'if' is removed, keep what is in the 'else' (but not still within the if statement)
 		if(this.Domain.length === Domain.length)
 		{
 			// The length of the old and new domain are the same, so assume that this is just a rename of domain items
@@ -100,11 +54,14 @@ function Node(Name_)
 			// Not always correct, but it helps
 			for(var i=0;i<DomainIndexChanges.length;++i)
 			{
+				// Does it not have a new domain item to go to?
 				if(DomainIndexChanges[i] < 0)
 				{
+					// Search the new domain items for one to go to 
 					var foundIndex = -1;
 					for(var j=0;j<Domain.length;++j)
 					{
+						// Check if this new one has nothing from the old domain pointing to it
 						var hasMoved = true;
 						for(var k=0;k<DomainIndexChanges.length;++k)
 						{
@@ -115,6 +72,7 @@ function Node(Name_)
 							}
 						}
 
+						// It doesn't, so the old domain can point to this one
 						if(hasMoved)
 						{
 							foundIndex = j;
@@ -146,8 +104,13 @@ function Node(Name_)
 				var newIndex = DomainIndexChanges[CPTList[i].preference[j]];
 				if(newIndex < 0) // This domain item was deleted, remove it from the preference order
 				{
+					// Remove the succeed boolean where
+					// a >= b >= c   ->   a >= c
+					// a >= b >  c   ->   a >  c
+					// a >  b >= c   ->   a >  c
+					// a >  b >  c   ->   a >  c
 					if(j === 0)
-						CPTList[i].preference.splice(j, 2); // Remove the succeed boolean
+						CPTList[i].preference.splice(j, 2);
 					else if(j === CPTList[i].preference.length - 1)
 						CPTList[i].preference.splice(j-1, 2);
 					else if(CPTList[i].preference[j+1])
@@ -156,7 +119,7 @@ function Node(Name_)
 						CPTList[i].preference.splice(j-1, 2);
 					j-=2;
 				}
-				else
+				else // Wasn't deleted, just move it
 				{
 					CPTList[i].preference[j] = newIndex;
 				}
@@ -170,7 +133,6 @@ function Node(Name_)
 				CPTList[i].preference.push(AddedIndices[j]);
 			}
 		}
-		this.CPTListCache = null;
 
 		// Update child node CPTs
 		for(var i=0;i<this.Children.length;++i)
@@ -227,7 +189,7 @@ function Node(Name_)
 			false;
 
 		// Check for cycles
-		if(!AllowCycles && IsNodeCyclic(TargetNode))
+		if(!AllowCycles && this.IsCyclic())
 		{
 			TargetNode.Parents.splice(ParentInsertIndex, 1);
 			this.Children.pop();
@@ -363,6 +325,7 @@ function Node(Name_)
 		return this.CPTListCache;
 	}
 
+	// Preference getter/setter
 	this.SetPreference = function (Condition, Preference)
 	{
 		if(!Array.isArray(Condition) || !Array.isArray(Preference) || Condition.length != this.Parents.length)
@@ -376,7 +339,6 @@ function Node(Name_)
 		for(var i=0;i<Preference.length;++i)
 			PrevPref[i] = Preference[i];
 	}
-
 	this.GetPreference = function (Condition)
 	{
 		if(!Array.isArray(Condition) || Condition.length != this.Parents.length)
@@ -386,6 +348,38 @@ function Node(Name_)
 		for(var i=0;i<Condition.length;++i)
 			PrevPref = PrevPref[Condition[i]];
 		return PrevPref;
+	}
+
+	// Returns true if the given StartingNode is part of a cycle
+	// Does NOT detect if a cycle can be reached from this node; only if THIS node is PART OF a cycle
+	this.IsCyclic = function()
+	{
+		var IsCyclicHelper = function (StartingNode, CurrentNode, VisitedNodes)
+		{
+			// If we've reached the StartingNode, there is a cycle
+			if(StartingNode === CurrentNode)
+				return true;
+
+			// Set starting values
+			if(!CurrentNode)
+				CurrentNode = StartingNode; // If this is the first iteration, make the StartingNode current
+
+			// Exit if this node has already been visited
+			if(VisitedNodes.indexOf(CurrentNode) >= 0)
+				return false;
+
+			// Add this node to the visited nodes list
+			VisitedNodes.push(CurrentNode);
+
+			// Recurse on all parents
+			for(var i=0;i<CurrentNode.Parents.length;++i)
+				if(IsCyclicHelper(StartingNode, CurrentNode.Parents[i], VisitedNodes)) // If a cycle was found, return true immediately
+					return true;
+
+			return false;
+		}
+
+		return IsCyclicHelper(this, null, [])
 	}
 
 	// Set default name and domain
@@ -406,10 +400,20 @@ A preference statement:
 
 */
 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// UTILITY FUNCTIONS
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Duplicates a preference statement (the kind returned by Node.ListCPT())
 function DuplicatePreferenceStatement(PrefStatement)
 {
 	return {"condition":PrefStatement.condition.slice(0), "preference":PrefStatement.preference.slice(0)};
 }
+
+// Makes a deep clone of a multidimensional CPT array
+// Clones the preferences too, so any modification in the clone does not affect the original
 function CloneCPTArray(CPTSection)
 {
 	if(!Array.isArray(CPTSection))
@@ -419,6 +423,16 @@ function CloneCPTArray(CPTSection)
 		Cloned.push(CloneCPTArray(CPTSection[i]));
 	return Cloned;
 }
+
+// Iterates over the nodes at a specific level in a multidimensional CPT array
+// For example, in this CPT array:
+//       A        row 0
+//      / \
+//    B     C     row 1
+//   /|\   /|\
+//  a b c d e f   row 2 (preferences row, not actual nodes, but technically still iterable)
+// Calling IterateCPTLevel(A, 0, 1, Callback) would call Callback(B) and Callback(C)
+// Also, calling IterateCPTLevel(A, 0, 2, Callback) is equal to calling IterateCPTLevel(B, 0, 1, Callback) plus IterateCPTLevel(C, 0, 1, Callack)
 function IterateCPTLevel(CPTSection, CurrentLevel, TargetLevel, Callback)
 {
 	if(CurrentLevel > TargetLevel || !Callback)
@@ -429,6 +443,10 @@ function IterateCPTLevel(CPTSection, CurrentLevel, TargetLevel, Callback)
 		IterateCPTLevel(CPTSection[i], CurrentLevel+1, TargetLevel, Callback);
 }
 
+// Inserts Value into a sorted array InsertArray at the correct position to keep the array sorted.
+// Use a custom comparator if Value can not be compared with the standard ==, >, and < operators.
+// The comparator function should return true 1 if A > B, 0 if A < B, and -1 if A == B.
+// Mostly copied from http://machinesaredigging.com/2014/04/27/binary-insert-how-to-keep-an-array-sorted-as-you-insert-data-in-it/, but changed to support duplicates (not necessary, but whatever)
 function BinaryInsert(InsertArray, Value, Comparator, Start, End)
 {
 	if(InsertArray.length === 0)
@@ -473,257 +491,15 @@ function BinaryInsert(InsertArray, Value, Comparator, Start, End)
 	}
 }
 
-// TEMP
-function createNDimArray(dimensions) {
-    if (dimensions.length > 0) {
-        var dim = dimensions[0];
-        var rest = dimensions.slice(1);
-        var newArray = new Array();
-        for (var i = 0; i < dim; i++) {
-            newArray[i] = createNDimArray(rest);
-        }
-        return newArray;
-     } else {
-        return [];
-     }
- }
-
-
-// // Returns the Node's CPT as an array
-	// // Do not pass any arguments to this function
-	// this.ListCPT = function (CPTSection, Dimension)
-	// {
-	// 	if(typeof(CPTSection) === 'undefined')
-	// 		CPTSection = this.CPT;
-	// 	if(typeof(Dimension) === 'undefined')
-	// 		Dimension = [];
-
-	// 	if(this.Parents.length == 0)
-	// 		return [];
-	// 	if(Dimension.length >= this.Parents.length || !Array.isArray(CPTSection))
-	// 		return {"condition":Dimension, "preference":CPTSection};
-
-	// 	var List = [];
-	// 	for(var i=0;i<CPTSection.length;++i)
-	// 	{
-	// 		var newList = this.ListCPT(CPTSection[i], Dimension.concat([i]));
-	// 		if(newList.condition && newList.preference)
-	// 			List.push(newList);
-	// 		else
-	// 			List = List.concat(newList);
-	// 	}
-	// 	return List;
-	// }
-
-
-// function Graph()
-// {
-// 	this.Nodes = [];
-
-// 	// Adds a node to this graph
-// 	// Recursively adds every node attached to the given node into this graph as well
-// 	// Returns false and does not add the node if the node's name is blank or already exists in this graph
-// 	this.AddNode = function(Node)
-// 	{
-// 		if(isEmptyOrSpaces(Node.Name)) // Can't add before setting a name
-// 			return false;
-
-// 		for(var i=0;i<this.Nodes.length;++i)
-// 			if(this.Nodes.Name == Node.Name)
-// 				return false;
-
-// 		this.Nodes.push(Node);
-// 		return true;
-// 	}
-
-// 	// Removes the given node from this graph and destroys the node
-// 	// Does nothing if the given node is not in this graph
-// 	this.DestroyNode = function(Node)
-// 	{
-// 		var NodeIndex = this.Nodes.indexOf(Node);
-// 		if(NodeIndex >= 0)
-// 		{
-// 			this.Nodes.splice(NodeIndex, 1);
-// 			Node.Destroy();
-// 		}
-// 	}
-
-// 	// Sets a node's name
-// 	// Returns false and does nothing if the new name matches the name of an existing node in this graph
-// 	// Node does not have to be in this Graph
-// 	this.SetName = function(Node, Name)
-// 	{
-// 		if(isEmptyOrSpaces(Name))
-// 			return false;
-
-// 		for(var i=0;i<GraphNodes.length;++i)
-// 			if(GraphNodes[i].Name === Name)
-// 				return false;
-
-// 		Node.Name = Name;
-// 		return true;
-// 	}
-// }
-
-// function Graph()
-// {
-// 	this.Nodes = [];
-// 	this.AllowCycles = false;
-// 	this.MaxParents = 5;
-
-// 	// Creates a new node in the graph with the given name
-// 	// Does not add a node and returns null if Name is not available
-// 	this.AddNewNode = function (Name)
-// 	{
-// 		var N = new Node(this, Name);
-// 		if(N.Name != Name)
-// 			return null;
-// 		this.Nodes.push(N);
-// 		return N;
-// 	}
-
-// 	// Removes the given node (either a node object or its name) from the graph
-// 	this.RemoveNode = function (Node)
-// 	{
-// 		// Convert node name to node object (if it's given as a name)
-// 		if(typeof(Node) === 'string')
-// 			Node = this.GetNodeByName(Node);
-// 		if(!Node)
-// 			return;
-
-// 		// Remove all outgoing links from this node
-// 		var Children = [];
-// 		var ChildCount = Node.Children.length; // UnlinkFrom modifies the child count, so cache the variable
-// 		for(var i=0;i<ChildCount;++i)
-// 		{
-// 			Children.push(Node.Children[0]);
-// 			this.UnlinkNodes(Node, Node.Children[0]);
-// 		}
-
-// 		// Remove all incoming links
-// 		var ParentCount = this.Parents.length;
-// 		for(var i=0;i<ParentCount;++i)
-// 			this.UnlinkNodes(Node.Parents[0], Node);
-
-// 		// TODO: Update the child nodes' CPTs
-// 		//for(var i=0;i<Children.length;++i)
-// 		//	Children[i].GenerateCPT();
-
-// 		// Remove from graph
-// 		var NodeIndex = GraphNodes.indexOf(this);
-// 		if(NodeIndex >= 0)
-// 			GraphNodes.splice(NodeIndex, 1);
-
-// 		// Delete data
-// 		Node.Domain = [];
-// 		Node.Parents = [];
-// 		Node.Children = [];
-// 		Node.CPT = [];
-// 	}
-
-// 	// Directionally links from SourceNode to TargetNode
-// 	this.LinkNodes = function (SourceNode, TargetNode)
-// 	{
-// 		// Validate nodes
-// 		if(!SourceNode || !TargetNode)
-// 			return false;
-
-// 		// Check if they're already linked
-// 		if(SourceNode.AreNodesLinked(TargetNode))
-// 			return true;
-
-// 		// Check for too many in-nodes
-// 		if(TargetNode.Parents.length + 1 > this.MaxParents)
-// 			return "too_many_parents";
-
-// 		// Add the link
-// 		TargetNode.Parents.push(SourceNode);
-// 		SourceNode.Children.push(TargetNode);
-
-// 		// Check for cycles
-// 		if(!this.AllowCycles && IsNodeCyclic(TargetNode))
-// 		{
-// 			TargetNode.Parents.pop();
-// 			SourceNode.Children.pop();
-// 			return "cycles_not_allowed";
-// 		}
-
-// 		// TODO: Update the TargetNode's CPT
-
-// 		return true;
-// 	}
-
-// 	// Directionally unlinks from SourceNode to TargetNode
-// 	this.UnlinkNodes = function (SourceNode, TargetNode)
-// 	{
-// 		// Validate nodes
-// 		if(!SourceNode || !TargetNode)
-// 			return;
-
-// 		// Make sure that TargetNode is a child of SourceNode
-// 		var ParentIndex = TargetNode.Parents.indexOf(SourceNode);
-// 		if(ParentIndex < 0)
-// 			return;
-
-// 		// Remove the link
-// 		TargetNode.Parents.splice(ParentIndex, 1);
-
-// 		var ChildIndex = SourceNode.Children.indexOf(TargetNode);
-// 		SourceNode.Children.splice(ChildIndex, 1);
-
-// 		// TODO: Update the TargetNode's CPT
-// 	}
-
-// 	// Returns true if SourceNode is directionally linked to TargetNode
-// 	this.AreNodesLinked = function (SourceNode, TargetNode)
-// 	{
-// 		if(!SourceNode || !TargetNode)
-// 			return false;
-// 		return TargetNode.Parents.indexOf(SourceNode) >= 0;
-// 	}
-
-// 	// Returns true if the given name is available for use in the graph
-// 	this.CheckNameAvailable = function (Name)
-// 	{
-// 		// Check for invalid names
-// 		if(isEmptyOrSpaces(Name))
-// 			return false;
-
-// 		// Check for duplicate names
-// 		for(var i=0;i<this.Nodes.length;++i)
-// 			if(this.Nodes[i].Name == Name)
-// 				return false;
-
-// 		return true;
-// 	}
-
-// 	// Returns a node object from the given name
-// 	// Returns null if there is no such node
-// 	this.GetNodeByName = function (Name)
-// 	{
-// 		for(var i=0;i<this.Nodes.length;++i)
-// 			if(this.Nodes[i].Name == Name)
-// 				return this.Nodes[i];
-// 		return null;
-// 	}
-
-// 	// Sets the max number of parents for any node
-// 	// Returns false and does nothing if this cannot be set (if there is already a node with more parents than trying to be set)
-// 	this.SetMaxParentNodes = function (MaxParents)
-// 	{
-// 		// Check if any node already has more parents than MaxParents
-// 		for(var i=0;i<this.Nodes.length;++i)
-// 			if(df)
-// 		this.MaxParents = MaxParents;
-// 	}
-
-// 	// Enables or disables cycles
-// 	// Returns false and does nothing if there is already a cycle in the graph
-// 	this.SetAllowsCycles = function (AllowsCycles)
-// 	{
-
-// 	}
-// }
+// Returns true if the graph contains any cycles anywhere, false otherwise
+function DoesGraphHaveCycle(GraphNodes)
+{
+	// Run IsNodeCyclic on every node in the graph
+	for(var i=0;i<GraphNodes.length;++i)
+		if(GraphNodes[i].IsCyclic())
+			return true;
+	return false;
+}
 
 
 
