@@ -326,8 +326,8 @@ function LoadDefaultCPNet()
 
 	// Set their domain
 	WeatherNode.SetDomain(["Fair", "Rain"]);
-	TimeNode.SetDomain(["Morning", "Afternoon"]);
 	ActivityNode.SetDomain(["Cycling", "Table Tennis"]);
+	TimeNode.SetDomain(["Morning", "Afternoon"]);
 	FriendNode.SetDomain(["Emily", "Henry"]);
 
 	// Link them
@@ -477,13 +477,14 @@ function LinkNodes(SourceNode, TargetNode)
 	var Success = SourceNode.LinkTo(TargetNode);
 	switch(Success)
 	{
-		case "badcycle":
+		case "cycles not allowed":
 			MessageBar.innerHTML = "Cannot create link because it will make a cycle.";
 			return false;
-		case "toomanyins":
+		case "too many parents":
 			MessageBar.innerHTML = "Cannot create link because it will give the target node too many in-nodes.";
 			return false;
 		default:
+			UpdateGraph();
 			SetSaved(false);
 			return Success;
 	}
@@ -499,9 +500,14 @@ function NodeOnClick(Node)
 		if(SelectedNode && SelectedNode !== Node)
 		{
 			if(SelectedNode.IsLinkedTo(Node))
+			{
 				SelectedNode.UnlinkFrom(Node);
+				UpdateGraph();
+			}
 			else
+			{
 				LinkNodes(SelectedNode, Node);
+			}
 		}
 
 		Linking = false;

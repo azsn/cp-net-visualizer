@@ -56,52 +56,155 @@ function IsNodeCyclic(StartingNode, CurrentNode, VisitedNodes)
 function Node(Name_)
 {
 	this.Name = "";
-	this.Domain = [];
 	this.Parents = [];
 	this.Children = [];
-	this.CPT = [];
+	this.Domain = [];
+	this.CPT = []; // Multidimensional array. CPT[parent0-domain-index][parent1-domain-index][...][preference-order-index]
+	this.CPTListCache = null; // Cached list of the this.CPT multidimensional array. Lists every end value of this.CPT. Set to null whenever this.CPT changes.
 
 	// Sets this node's name
 	// Optionally, if GraphNodes is specified, does not set name and returns false if the given name matches any existing node name
 	// Returns false if the new name is empty (blank or only whitespace)
-	this.SetName = function (Name, GraphNodes)
+	this.SetName = function (Name)
 	{
 		// Make sure the new name isn't blank
 		if(isEmptyOrSpaces(Name))
 			return false;
 
-		//Name = Name.replace(/\s+/g, '-'); // Name can't have spaces, to convert them to hyphens
-
 		// Make sure the name isn't a duplicate
-		if(GraphNodes)
-		{
-			for(var i=0;i<GraphNodes.length;++i)
-				if(GraphNodes[i].Name === Name)
-					return false;
-		}
+		// TODO
 
 		// Set the name
 		this.Name = Name;
 		return true;
 	}
-	this.SetName(Name_); // Set default name
 
 	// Sets this node's domain
-	// Set DontUpdate to true to not update the graph (to not call UpdateGraph())
 	this.SetDomain = function (Domain)
 	{
+		// Make sure domain has at least one item
+		if(Domain.length <= 0)
+			Domain = ["domain_item"];
+		else
+			Domain.sort();
+
+		// Find new/removed/moved indices
+		var DomainIndexChanges = [], AddedIndices = [];
+		for(var i=0;i<this.Domain.length;++i)
+			DomainIndexChanges[i] = Domain.indexOf(this.Domain[i]);
+		
+		if(this.Domain.length === Domain.length)
+		{
+			// The length of the old and new domain are the same, so assume that this is just a rename of domain items
+			// Find a place for each old domain who's name probably changed
+			// Not always correct, but it helps
+			for(var i=0;i<DomainIndexChanges.length;++i)
+			{
+				if(DomainIndexChanges[i] < 0)
+				{
+					var foundIndex = -1;
+					for(var j=0;j<Domain.length;++j)
+					{
+						var hasMoved = true;
+						for(var k=0;k<DomainIndexChanges.length;++k)
+						{
+							if(DomainIndexChanges[k] === j)
+							{
+								hasMoved = false;
+								break;
+							}
+						}
+
+						if(hasMoved)
+						{
+							foundIndex = j;
+							break;
+						}
+					}
+
+					DomainIndexChanges[i] = foundIndex;
+				}
+			}
+		}
+		else
+		{
+			for(var i=0;i<Domain.length;++i)
+				if(this.Domain.indexOf(Domain[i]) < 0)
+					AddedIndices.push(i);
+		}
+
 		// Set the domain
 		this.Domain = Domain;
 
-		// TODO: Update CPT table of Node's child nodes
-		this.GenerateCPT();
+		// Fix the preference orders for the new domain
+		var CPTList = this.ListCPT();
+		for(var i=0;i<CPTList.length;++i)
+		{
+			// Move old indices to the new ones
+			for(var j=0;j<CPTList[i].preference.length;j+=2) // skip every other since they're the succeeds booleans
+			{
+				var newIndex = DomainIndexChanges[CPTList[i].preference[j]];
+				if(newIndex < 0) // This domain item was deleted, remove it from the preference order
+				{
+					if(j === 0)
+						CPTList[i].preference.splice(j, 2); // Remove the succeed boolean
+					else if(j === CPTList[i].preference.length - 1)
+						CPTList[i].preference.splice(j-1, 2);
+					else if(CPTList[i].preference[j+1])
+						CPTList[i].preference.splice(j, 2);
+					else
+						CPTList[i].preference.splice(j-1, 2);
+					j-=2;
+				}
+				else
+				{
+					CPTList[i].preference[j] = newIndex;
+				}
+			}
+
+			// Add new domain indices
+			for(var j=0;j<AddedIndices.length;++j)
+			{
+				if(CPTList[i].preference.length > 0)
+					CPTList[i].preference.push(0);
+				CPTList[i].preference.push(AddedIndices[j]);
+			}
+		}
+		this.CPTListCache = null;
+
+		// Update child node CPTs
 		for(var i=0;i<this.Children.length;++i)
-			this.Children[i].GenerateCPT();
+		{
+			// Get parent (This) index in child
+			var thisIndexInChild = this.Children[i].Parents.indexOf(this);
+			if(thisIndexInChild < 0) // Just making sure
+				continue;
+
+			// Iterate over every section of the CPT containg data for This
+			// So, if This is the child's index 2 parent (3rd parent), this would iterate over every CPT[parent0-domain-index][parent1-domain-index]
+			// Meaning that each CPTSection returned has (CPTSection.length == this.Domain.length) AFTER this iteration completes and the domains are updated
+			IterateCPTLevel(this.Children[i].CPT, 0, thisIndexInChild, function (CPTSection)
+			{
+				// Shallow copy original
+				var oldCPTSection = CPTSection.slice(0);
+
+				// Move domain items from original to CPTSection, leave out removed domain items
+				CPTSection.length = 0;
+				for(var j=0;j<DomainIndexChanges.length;++j)
+					if(DomainIndexChanges[j] >= 0)
+						CPTSection[DomainIndexChanges[j]] = oldCPTSection[j];
+
+				// Add in the new domain items
+				for(var j=0;j<AddedIndices.length;++j)
+					CPTSection[AddedIndices[j]] = CloneCPTArray(oldCPTSection[0]);
+			});
+			this.Children[i].CPTListCache = null;
+		}
 	}
 
 	// Links this node to TargetNode and updates the TargetNode's CPT table
-	// Returns "badcycle" if the link creates a cycle and cycles aren't allowed (and does not create the link)
-	// Returns "toomanyins" if the link creates too many in-nodes to TargetNode (and does not create the link)
+	// Returns "cycles not allowed" and does nothing if the link creates a cycle and cycles aren't allowed
+	// Returns "too many parents" and does nothing if the link creates too many parent nodes to TargetNode
 	// Returns true on success
 	this.LinkTo = function (TargetNode)
 	{
@@ -115,27 +218,35 @@ function Node(Name_)
 
 		// Check for too many in-nodes
 		if(TargetNode.Parents.length + 1 > MaxInNodes)
-			return "toomanyins";
+			return "too many parents";
 
 		// Add the link
-		TargetNode.Parents.push(this);
 		this.Children.push(TargetNode);
+		var ParentInsertIndex = BinaryInsert(TargetNode.Parents, this, function (A, B) { return (A.Name === B.Name) ? -1 : (A.Name > B.Name); });
+		if(ParentInsertIndex < 0)
+			false;
 
 		// Check for cycles
 		if(!AllowCycles && IsNodeCyclic(TargetNode))
 		{
-			TargetNode.Parents.pop();
+			TargetNode.Parents.splice(ParentInsertIndex, 1);
 			this.Children.pop();
-			return "badcycle";
+			return "cycles not allowed";
 		}
 
-		// TODO: Update the TargetNode's CPT
-		TargetNode.GenerateCPT();
-
-		// Create a default order
-		// var order = [];
-		// for(var x=0;x<TargetNode.domain.length;++x)
-		// 	order.push(x);
+		// Add to child's CPT
+		var ThisDomainLength = this.Domain.length;
+		IterateCPTLevel(TargetNode.CPT, 0, ParentInsertIndex, function (CPTSection)
+		{
+			// Takes each end node and makes it into another array where newarray[0]=the-original-end-node, newarray[1]=clone-of-original, newarray[2]=clone-of-original, ...
+			var section = CPTSection.slice(0);
+			CPTSection.length = 0;
+			
+			CPTSection.push(section);
+			for(var i=0;i<ThisDomainLength-1;++i)
+				CPTSection.push(CloneCPTArray(section));
+		});
+		TargetNode.CPTListCache = null;
 
 		return true;
 	}
@@ -158,7 +269,16 @@ function Node(Name_)
 		var ChildIndex = this.Children.indexOf(TargetNode);
 		this.Children.splice(ChildIndex, 1);
 
-		TargetNode.GenerateCPT();
+		// Remove from child's CPT
+		IterateCPTLevel(TargetNode.CPT, 0, ParentIndex, function (CPTSection)
+		{
+			// Opposite of what is done in LinkTo
+			var section = CPTSection[0];
+			CPTSection.length = 0;
+			for(var i=0;i<section.length;++i)
+				CPTSection[i] = section[i];
+		});
+		TargetNode.CPTListCache = null;
 	}
 
 	// Returns true if this node is a parent of TargetNode
@@ -192,18 +312,18 @@ function Node(Name_)
 	this.Destroy = function (GraphNodes)
 	{
 		// Remove all outgoing links from this node
+		var Children = [];
 		var ChildCount = this.Children.length; // UnlinkFrom modifies the child count, so cache the variable
 		for(var i=0;i<ChildCount;++i)
+		{
+			Children[i] = this.Children[0];
 			this.UnlinkFrom(this.Children[0], true);
+		}
 
 		// Remove all incoming links
 		var ParentCount = this.Parents.length;
 		for(var i=0;i<ParentCount;++i)
 			this.Parents[0].UnlinkFrom(this, true);
-
-		// TODO: Update the child nodes' CPTs
-		for(var i=0;i<this.Children.length;++i)
-			this.Children[i].GenerateCPT();
 
 		// Remove from graph
 		if(GraphNodes)
@@ -218,55 +338,29 @@ function Node(Name_)
 		this.Parents = [];
 		this.Children = [];
 		this.CPT = [];
+		this.CPTListCache = null;
 	}
 
-	// Generates a blank CPT for the given Node
-	this.GenerateCPT = function ()
+	// Returns the multidimensional CPT as a list where each end node in the CPT is a entry in the list entry of {condition:path-to-end-node, preference:end-node}
+	this.ListCPT = function ()
 	{
-		var dimensions = [];
-		for(var i=0;i<this.Parents.length;++i)
-			dimensions.push(this.Parents[i].Domain.length);
+		if(this.CPTListCache)
+			return this.CPTListCache;
 
-		this.CPT = createNDimArray(dimensions);
-
-		// TEMP: FILL CPT
-		var pref = [];
-		for(var i=0;i<this.Domain.length;++i)
+		var NumParents = this.Parents.length;
+		var ListRecurse = function (CPTSection, Dimension)
 		{
-			pref.push(i);
-			if(i<this.Domain.length-1)
-				pref.push(0);
+			if(Dimension.length >= NumParents)
+				return [{"condition":Dimension, "preference":CPTSection}];
+
+			var List = [];
+			for(var i=0;i<CPTSection.length;++i)
+				List = List.concat(ListRecurse(CPTSection[i], Dimension.concat([i])));
+			return List;
 		}
 
-		var cplist = this.ListCPT();
-		for(var i=0;i<cplist.length;++i)
-			this.SetPreference(cplist[i].condition, pref);
-	}
-
-	// Returns the Node's CPT as an array
-	// Do not pass any arguments to this function
-	this.ListCPT = function (CPTSection, Dimension)
-	{
-		if(typeof(CPTSection) === 'undefined')
-			CPTSection = this.CPT;
-		if(typeof(Dimension) === 'undefined')
-			Dimension = [];
-
-		if(this.Parents.length == 0)
-			return [];
-		if(Dimension.length >= this.Parents.length || !Array.isArray(CPTSection))
-			return {"condition":Dimension, "preference":CPTSection};
-
-		var List = [];
-		for(var i=0;i<CPTSection.length;++i)
-		{
-			var newList = this.ListCPT(CPTSection[i], Dimension.concat([i]));
-			if(newList.condition && newList.preference)
-				List.push(newList);
-			else
-				List = List.concat(newList);
-		}
-		return List;
+		this.CPTListCache = ListRecurse(this.CPT, []);
+		return this.CPTListCache;
 	}
 
 	this.SetPreference = function (Condition, Preference)
@@ -293,6 +387,10 @@ function Node(Name_)
 			PrevPref = PrevPref[Condition[i]];
 		return PrevPref;
 	}
+
+	// Set default name and domain
+	this.SetName(Name_); 
+	this.SetDomain([]);
 }
 
 /*
@@ -308,7 +406,72 @@ A preference statement:
 
 */
 
+function DuplicatePreferenceStatement(PrefStatement)
+{
+	return {"condition":PrefStatement.condition.slice(0), "preference":PrefStatement.preference.slice(0)};
+}
+function CloneCPTArray(CPTSection)
+{
+	if(!Array.isArray(CPTSection))
+		return CPTSection;
+	var Cloned = [];
+	for(var i=0;i<CPTSection.length;++i)
+		Cloned.push(CloneCPTArray(CPTSection[i]));
+	return Cloned;
+}
+function IterateCPTLevel(CPTSection, CurrentLevel, TargetLevel, Callback)
+{
+	if(CurrentLevel > TargetLevel || !Callback)
+		return;
+	if(CurrentLevel === TargetLevel)
+		return Callback(CPTSection);
+	for(var i=0;i<CPTSection.length;++i)
+		IterateCPTLevel(CPTSection[i], CurrentLevel+1, TargetLevel, Callback);
+}
 
+function BinaryInsert(InsertArray, Value, Comparator, Start, End)
+{
+	if(InsertArray.length === 0)
+	{
+		InsertArray.push(Value);
+		return 0;
+	}
+
+	Start = (typeof(Start) === 'undefined' ? 0 : Start);
+	End = (typeof(End) === 'undefined' ? InsertArray.length-1 : End);
+	Comparator = (typeof(Comparator) === 'function' ? Comparator : (function (A, B) { return (A == B) ? -1 : (A > B); }) ); // Return 1: >, 0: <, -1: ==
+	var Middle = Start + Math.floor((End-Start)/2);
+	
+	if(Start > End)
+		return -1;
+
+	if(Comparator(Value, InsertArray[End]) != 0)
+	{
+		InsertArray.splice(End + 1, 0, Value);
+		return End + 1;
+	}
+	if(Start == End || Comparator(Value, InsertArray[Start]) != 1)
+	{
+		InsertArray.splice(Start, 0, Value);
+		return Start;
+	}
+
+	var Comparison = Comparator(Value, InsertArray[Middle]);
+	
+	if(Comparison == 1)
+	{
+		return BinaryInsert(InsertArray, Value, Comparator, Middle + 1, End);
+	}
+	else if(Comparison == 0)
+	{
+		return BinaryInsert(InsertArray, Value, Comparator, Start, Middle - 1);
+	}
+	else
+	{
+		InsertArray.splice(Middle, 0, Value);
+		return Middle;
+	}
+}
 
 // TEMP
 function createNDimArray(dimensions) {
@@ -325,6 +488,242 @@ function createNDimArray(dimensions) {
      }
  }
 
+
+// // Returns the Node's CPT as an array
+	// // Do not pass any arguments to this function
+	// this.ListCPT = function (CPTSection, Dimension)
+	// {
+	// 	if(typeof(CPTSection) === 'undefined')
+	// 		CPTSection = this.CPT;
+	// 	if(typeof(Dimension) === 'undefined')
+	// 		Dimension = [];
+
+	// 	if(this.Parents.length == 0)
+	// 		return [];
+	// 	if(Dimension.length >= this.Parents.length || !Array.isArray(CPTSection))
+	// 		return {"condition":Dimension, "preference":CPTSection};
+
+	// 	var List = [];
+	// 	for(var i=0;i<CPTSection.length;++i)
+	// 	{
+	// 		var newList = this.ListCPT(CPTSection[i], Dimension.concat([i]));
+	// 		if(newList.condition && newList.preference)
+	// 			List.push(newList);
+	// 		else
+	// 			List = List.concat(newList);
+	// 	}
+	// 	return List;
+	// }
+
+
+// function Graph()
+// {
+// 	this.Nodes = [];
+
+// 	// Adds a node to this graph
+// 	// Recursively adds every node attached to the given node into this graph as well
+// 	// Returns false and does not add the node if the node's name is blank or already exists in this graph
+// 	this.AddNode = function(Node)
+// 	{
+// 		if(isEmptyOrSpaces(Node.Name)) // Can't add before setting a name
+// 			return false;
+
+// 		for(var i=0;i<this.Nodes.length;++i)
+// 			if(this.Nodes.Name == Node.Name)
+// 				return false;
+
+// 		this.Nodes.push(Node);
+// 		return true;
+// 	}
+
+// 	// Removes the given node from this graph and destroys the node
+// 	// Does nothing if the given node is not in this graph
+// 	this.DestroyNode = function(Node)
+// 	{
+// 		var NodeIndex = this.Nodes.indexOf(Node);
+// 		if(NodeIndex >= 0)
+// 		{
+// 			this.Nodes.splice(NodeIndex, 1);
+// 			Node.Destroy();
+// 		}
+// 	}
+
+// 	// Sets a node's name
+// 	// Returns false and does nothing if the new name matches the name of an existing node in this graph
+// 	// Node does not have to be in this Graph
+// 	this.SetName = function(Node, Name)
+// 	{
+// 		if(isEmptyOrSpaces(Name))
+// 			return false;
+
+// 		for(var i=0;i<GraphNodes.length;++i)
+// 			if(GraphNodes[i].Name === Name)
+// 				return false;
+
+// 		Node.Name = Name;
+// 		return true;
+// 	}
+// }
+
+// function Graph()
+// {
+// 	this.Nodes = [];
+// 	this.AllowCycles = false;
+// 	this.MaxParents = 5;
+
+// 	// Creates a new node in the graph with the given name
+// 	// Does not add a node and returns null if Name is not available
+// 	this.AddNewNode = function (Name)
+// 	{
+// 		var N = new Node(this, Name);
+// 		if(N.Name != Name)
+// 			return null;
+// 		this.Nodes.push(N);
+// 		return N;
+// 	}
+
+// 	// Removes the given node (either a node object or its name) from the graph
+// 	this.RemoveNode = function (Node)
+// 	{
+// 		// Convert node name to node object (if it's given as a name)
+// 		if(typeof(Node) === 'string')
+// 			Node = this.GetNodeByName(Node);
+// 		if(!Node)
+// 			return;
+
+// 		// Remove all outgoing links from this node
+// 		var Children = [];
+// 		var ChildCount = Node.Children.length; // UnlinkFrom modifies the child count, so cache the variable
+// 		for(var i=0;i<ChildCount;++i)
+// 		{
+// 			Children.push(Node.Children[0]);
+// 			this.UnlinkNodes(Node, Node.Children[0]);
+// 		}
+
+// 		// Remove all incoming links
+// 		var ParentCount = this.Parents.length;
+// 		for(var i=0;i<ParentCount;++i)
+// 			this.UnlinkNodes(Node.Parents[0], Node);
+
+// 		// TODO: Update the child nodes' CPTs
+// 		//for(var i=0;i<Children.length;++i)
+// 		//	Children[i].GenerateCPT();
+
+// 		// Remove from graph
+// 		var NodeIndex = GraphNodes.indexOf(this);
+// 		if(NodeIndex >= 0)
+// 			GraphNodes.splice(NodeIndex, 1);
+
+// 		// Delete data
+// 		Node.Domain = [];
+// 		Node.Parents = [];
+// 		Node.Children = [];
+// 		Node.CPT = [];
+// 	}
+
+// 	// Directionally links from SourceNode to TargetNode
+// 	this.LinkNodes = function (SourceNode, TargetNode)
+// 	{
+// 		// Validate nodes
+// 		if(!SourceNode || !TargetNode)
+// 			return false;
+
+// 		// Check if they're already linked
+// 		if(SourceNode.AreNodesLinked(TargetNode))
+// 			return true;
+
+// 		// Check for too many in-nodes
+// 		if(TargetNode.Parents.length + 1 > this.MaxParents)
+// 			return "too_many_parents";
+
+// 		// Add the link
+// 		TargetNode.Parents.push(SourceNode);
+// 		SourceNode.Children.push(TargetNode);
+
+// 		// Check for cycles
+// 		if(!this.AllowCycles && IsNodeCyclic(TargetNode))
+// 		{
+// 			TargetNode.Parents.pop();
+// 			SourceNode.Children.pop();
+// 			return "cycles_not_allowed";
+// 		}
+
+// 		// TODO: Update the TargetNode's CPT
+
+// 		return true;
+// 	}
+
+// 	// Directionally unlinks from SourceNode to TargetNode
+// 	this.UnlinkNodes = function (SourceNode, TargetNode)
+// 	{
+// 		// Validate nodes
+// 		if(!SourceNode || !TargetNode)
+// 			return;
+
+// 		// Make sure that TargetNode is a child of SourceNode
+// 		var ParentIndex = TargetNode.Parents.indexOf(SourceNode);
+// 		if(ParentIndex < 0)
+// 			return;
+
+// 		// Remove the link
+// 		TargetNode.Parents.splice(ParentIndex, 1);
+
+// 		var ChildIndex = SourceNode.Children.indexOf(TargetNode);
+// 		SourceNode.Children.splice(ChildIndex, 1);
+
+// 		// TODO: Update the TargetNode's CPT
+// 	}
+
+// 	// Returns true if SourceNode is directionally linked to TargetNode
+// 	this.AreNodesLinked = function (SourceNode, TargetNode)
+// 	{
+// 		if(!SourceNode || !TargetNode)
+// 			return false;
+// 		return TargetNode.Parents.indexOf(SourceNode) >= 0;
+// 	}
+
+// 	// Returns true if the given name is available for use in the graph
+// 	this.CheckNameAvailable = function (Name)
+// 	{
+// 		// Check for invalid names
+// 		if(isEmptyOrSpaces(Name))
+// 			return false;
+
+// 		// Check for duplicate names
+// 		for(var i=0;i<this.Nodes.length;++i)
+// 			if(this.Nodes[i].Name == Name)
+// 				return false;
+
+// 		return true;
+// 	}
+
+// 	// Returns a node object from the given name
+// 	// Returns null if there is no such node
+// 	this.GetNodeByName = function (Name)
+// 	{
+// 		for(var i=0;i<this.Nodes.length;++i)
+// 			if(this.Nodes[i].Name == Name)
+// 				return this.Nodes[i];
+// 		return null;
+// 	}
+
+// 	// Sets the max number of parents for any node
+// 	// Returns false and does nothing if this cannot be set (if there is already a node with more parents than trying to be set)
+// 	this.SetMaxParentNodes = function (MaxParents)
+// 	{
+// 		// Check if any node already has more parents than MaxParents
+// 		for(var i=0;i<this.Nodes.length;++i)
+// 			if(df)
+// 		this.MaxParents = MaxParents;
+// 	}
+
+// 	// Enables or disables cycles
+// 	// Returns false and does nothing if there is already a cycle in the graph
+// 	this.SetAllowsCycles = function (AllowsCycles)
+// 	{
+
+// 	}
+// }
 
 
 
