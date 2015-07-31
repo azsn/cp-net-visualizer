@@ -277,7 +277,7 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 
 		if(!used)
 			break;
-	}	
+	}
 
 	// Check for no change
 	if(NextDomainIndex === Preference[PreferenceIndex])
@@ -392,11 +392,15 @@ function LoadCPNetFromFile()
 			{
 				// Get file name
 				CPNetNameInput.value = File.name.replace(/\.[^/.]+$/, ""); // Remove the file extension from the name
-				
+
 				// Set graph
 				SelectNode(null);
-				GraphNodes = graph;
+				GraphNodes = graph.nodes;
 				UpdateGraph();
+
+				// Show errors
+				if(graph.errors.length > 0)
+					MessageBar.innerHTML = "Loading errors:<br>" + graph.errors.join("<br>");
 
 				// Set to saved
 				SetSaved(true);
@@ -566,7 +570,7 @@ function UpdateGraph()
 	SVGNodes.exit() // Gets a list of nodes that need to be removed
 			.remove(); // Remove the old nodes that are no longer in the graph
 	SVGNodes = D3Svg.selectAll(".node"); // Reselect the SVG node elements since things have changed (is this necessary?)
-	
+
 	SVGNodes.selectAll("title").remove(); // Remove all the nodes titles and reset them (TODO: There is probably a better way to do this...)
 	SVGNodes.append("title").text(function (node) { return node.Name; });
 
@@ -707,7 +711,7 @@ function GenerateParentsListHTML(Node)
 		{
 			// Add the addnode row
 			HTML += "<tr> <td width='10%'> <img src='additem.png' alt='Add Node' onclick='AddParentNodeButtonClicked()'> </td>";
-			
+
 			// Add the dropdown box
 			HTML += "<td width='90%'> <select id='addparent-dynamic-dropdown'>";
 			for(var i=0;i<addableNodes.length;++i)
@@ -746,7 +750,7 @@ function GenerateCPTHTML(Node)
 				HTML += "<p class='cpt-table-item" + (CPList[i].preference[j] < 0 ? "-disabled" : "") + "' onclick='CPTListItemClicked(" + i + "," + j + ", event.shiftKey);event.preventDefault();'>" + Node.Domain[CPList[i].preference[j] < 0 ? (-CPList[i].preference[j] - 1) : CPList[i].preference[j]] + "</p>";
 			//else
 			//	HTML += "<p class='cpt-table-item-noclick'>" + Node.Domain[CPList[i].preference[j]] + "</p>";
-				
+
 		}
 
 		HTML += "</td> </tr>";
