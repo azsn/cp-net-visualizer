@@ -17,15 +17,20 @@ function Node(Name_)
 	// Sets this node's name
 	// Optionally, if GraphNodes is specified, does not set name and returns false if the given name matches any existing node name
 	// Returns false if the new name is empty (blank or only whitespace)
-	this.SetName = function (Name)
+	this.SetName = function (Name, GraphNodes)
 	{
 		// Make sure the new name isn't blank
 		if(isEmptyOrSpaces(Name))
 			return false;
 
-		// Make sure the name isn't a duplicate
-		// TODO
-
+		if(GraphNodes)
+		{
+			// Make sure the name isn't a duplicate
+			for(var i=0;i<GraphNodes.length;++i)
+				if(GraphNodes[i].Name == Name)
+					return false;
+		}
+		
 		// Set the name
 		this.Name = Name;
 		return true;
@@ -37,8 +42,14 @@ function Node(Name_)
 		// Make sure domain has at least one item
 		if(Domain.length <= 0)
 			Domain = ["domain_item"];
-		else
-			Domain.sort();
+		
+		// Remove duplicates and sort the array
+		for(var i=0;i<Domain.length;++i)
+			Domain[i] = Domain[i].trim();
+		Domain.sort();
+		Domain = Domain.filter(function(item, pos) {
+		    return Domain.indexOf(item) == pos;
+		});
 
 		// Find new/removed/moved indices
 		var DomainIndexChanges = [], AddedIndices = [];
@@ -49,6 +60,11 @@ function Node(Name_)
 		// The 'else' part of this if statement is not optional, however. If this 'if' is removed, keep what is in the 'else' (but not still within the if statement)
 		if(this.Domain.length === Domain.length)
 		{
+			// Check for equality
+			var same = true;
+			for(var i=0;i<DomainIndexChanges.length;++i) { if(DomainIndexChanges[i] != i)	{ same = false; break; } }
+			if(same) return;
+			
 			// The length of the old and new domain are the same, so assume that this is just a rename of domain items
 			// Find a place for each old domain who's name probably changed
 			// Not always correct, but it helps
@@ -90,6 +106,8 @@ function Node(Name_)
 				if(this.Domain.indexOf(Domain[i]) < 0)
 					AddedIndices.push(i);
 		}
+
+		// Everything above is just validating the new Domain array. The following code actually changes the domain
 
 		// Set the domain
 		this.Domain = Domain;
@@ -262,7 +280,7 @@ function Node(Name_)
 			return false;
 
 		for(var i=0;i<GraphNodes.length;++i)
-			if(GraphNodes.Name == this.Name)
+			if(GraphNodes[i].Name == this.Name)
 				return false;
 
 		GraphNodes.push(this);

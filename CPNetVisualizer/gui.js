@@ -168,8 +168,10 @@ function NodeNameInputChanged() // set to oninput; called on every character typ
 	if(!SelectedNode)
 		return;
 
-	SelectedNode.SetName(NodeNameInput.value);
+	var Value = NodeNameInput.value;
+	SelectedNode.SetName(NodeNameInput.value, GraphNodes);
 	UpdateGUI();
+	NodeNameInput.value = Value; // So that the user can temporarily type unallowed names into the textfield (such as erasing the whole field before entering a name)
 	SetSaved(false);
 }
 
