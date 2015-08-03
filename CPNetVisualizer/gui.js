@@ -303,6 +303,7 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 
 		// Update GUI
 		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode); // Don't refresh the entire GUI, just the CPT table
+		SetSaved(false);
 		return;
 	}
 
@@ -311,6 +312,7 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 	{
 		Preference[PreferenceIndex] = (-Preference[PreferenceIndex]) - 1;
 		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
+		SetSaved(false);
 		return;
 	}
 
@@ -359,6 +361,7 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 
 	// Update GUI
 	CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
+	SetSaved(false);
 }
 
 
@@ -404,17 +407,25 @@ function LoadDefaultCPNet()
 
 		// Set their domain
 		WeatherNode.SetDomain(["Fair", "Rain"]);
+		TimeNode.SetDomain(["Afternoon", "Morning"]);
 		ActivityNode.SetDomain(["Cycling", "Table Tennis"]);
-		TimeNode.SetDomain(["Morning", "Afternoon"]);
 		FriendNode.SetDomain(["Emily", "Henry"]);
 
 		// Link them
-		WeatherNode.LinkTo(ActivityNode);
 		TimeNode.LinkTo(ActivityNode);
+		WeatherNode.LinkTo(ActivityNode);
 		ActivityNode.LinkTo(FriendNode);
 
-		// TODO: Build preferences
-
+		// Set preferences
+		WeatherNode.SetPreference([], [0,0,1]); // Fair > Rain
+		TimeNode.SetPreference([], [0,0,1]); // Afternoon > Morning
+		ActivityNode.SetPreference([0,0], [0,0,1]); // Afternoon, Fair: Cycling > Table Tennis
+		ActivityNode.SetPreference([0,1], [1,0,0]); // Afternoon, Rain: Table Tennis > Cycling
+		ActivityNode.SetPreference([1,0], [1,0,0]); // Morning, Fair: Table Tennis > Cycling
+		ActivityNode.SetPreference([1,1], [1,0,0]); // Morning, Rain: Table Tennis > Cycling
+		FriendNode.SetPreference([0], [0,0,1]); // Cycling: Emily > Henry
+		FriendNode.SetPreference([1], [1,0,0]); // Table Tennis: Henry > Emily
+		
 		// Add them to the graph
 		WeatherNode.AddToGraph(GraphNodes);
 		TimeNode.AddToGraph(GraphNodes);
