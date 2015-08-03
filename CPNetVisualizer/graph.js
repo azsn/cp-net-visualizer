@@ -397,7 +397,77 @@ function Node(Name_)
 			return false;
 		}
 
-		return IsCyclicHelper(this, null, [])
+		return IsCyclicHelper(this, null, []);
+	}
+
+	// Returns true if this node's given parent is degenerate (has no effect on the preferences of this node)
+	// A node can only be degenerate relative to the child node; a degenerate parent of this node might not be degenerate for another of its child nodes
+	// Returns 0 if not degenerate, 1 if degenerate, 2 if possibly degenerate, -1 if an error
+	this.ParentIsDegenerate = function(ParentToTestIndex)
+	{
+		// Method: For every combination of domains in other parent nodes - excluding the given testing parent - test whether all the domains of the testing parent are the same
+		// So for 3 parents, each 3 domain, so this.CPT[0-2][0-2][0-2], testing 2nd parent, test whether:
+		//    0,0,0
+		//    0,1,0
+		//    0,2,0
+		// are equal, then test it for 1,0,0  1,1,0  1,2,0  etc... (every combination of other nodes' domains)
+		
+		var PossibleCombinations = 1;
+		for(var i=0;i<this.Parents.length;++i)
+			PossibleCombinations *= this.Parents[i].Domain.length;
+			
+		if(PossibleCombinations == 1)
+				return true;
+			
+		var PrevPref = null;
+		for(var i=0;i<PossibleCombinations;++i)
+		{
+			// Get the condition from the combination index
+			var condition = [];
+			var divisor = this.Parents[ParentToTestIndex].Domain.length;
+			for(var j=0;j<this.Parents.length;++j)
+			{
+				if(j==ParentToTestIndex)
+				{
+					condition[j] = i % this.Parents[ParentToTestIndex].Domain.length;
+				}
+				else
+				{
+					condition[j] = Math.floor(i / divisor) % this.Parents[j].Domain.length;
+					divisor *= this.Parents[j].Domain.length;
+				}
+			}
+			
+			// Get the preference from the condition
+			var pref = this.GetPreference(condition);
+			
+			// Reset PrevPref if this is the beginning of a new cycle on ParentToTestIndex
+			if(condition[ParentToTestIndex] == 0)
+			{
+				PrevPref = pref;
+			}
+			// Otherwise, compare this pref to the previous two
+			else
+			{
+				if(pref.length != PrevPref.length)
+					return -1; // This shouldn't happen...
+					
+				var equal = true;
+				for(var x=0;x<pref.length;++x)
+				{
+					if(pref[x] != PrevPref[x])
+					{
+						equal = false;
+						break;
+					}
+				}
+				
+				if(!equal)
+					return 0; // Not degenerate in parent!
+			}
+		}
+		
+		return 1;
 	}
 
 	// Set default name and domain

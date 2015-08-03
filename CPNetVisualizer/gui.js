@@ -550,6 +550,10 @@ function SelectNode(SelectedNode)
 {
 	window.SelectedNode = SelectedNode;
 	UpdateGUI();
+	
+	if(SelectedNode)
+		for(var i=0;i<SelectedNode.Parents.length;++i)
+			console.log(SelectedNode.Parents[i].Name + "->" + SelectedNode.Name + " degenerate: " + SelectedNode.ParentIsDegenerate(i));
 }
 
 // Affixes a node so that it does not move (unless manually dragged)
