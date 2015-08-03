@@ -90,8 +90,19 @@
 			<p class="header">conditional<br>preference table</p>
 			<table id="cpt-table" cellpadding="0" cellspacing="0"></table>
 		</div>
-
+		
 		<p id="message-bar"></p>
+
+		<div id="messagebox-modal-background">
+		</div>
+
+		<div class="messagebox" id="discard-unsaved-changes-messagebox">
+			<p class="header">The current CP-Net is unsaved. Do you really want to discard any unsaved changes and load a new CP-Net?</p>
+			<div class="buttonlist">
+				<input type="button" value="No"/>
+				<input type="button" value="Yes"/>
+			</div>
+		</div>
 
 		<!-- Now load the scripts -->
 		<script src="https://cdn.rawgit.com/eligrey/Blob.js/master/Blob.js"></script>

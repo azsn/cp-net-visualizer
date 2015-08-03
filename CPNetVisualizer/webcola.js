@@ -975,6 +975,7 @@ var cola;
             Blocks.prototype.cost = function () {
                 var sum = 0, i = this.list.length;
                 while (i--)
+                  if(this.list[i]) // CPNetVisualizer edit - sometimes when resetting the graph to one or zero nodes, one of this.list would be undefined, which caused CoLa to crash when calling .cost(). This fixes that, and doesn't seem to have any side effects.
                     sum += this.list[i].cost();
                 return sum;
             };
@@ -994,6 +995,25 @@ var cola;
                             console.log("remove block: " + b.blockInd);
                             console.assert(this.contains(b));
                 DEBUG */
+                
+                // CPNetVisualizer edit - see comment in Blocks.prototype.cost; this removes undefined blocks to keep CoLa from crashing
+                // No idea what's causing the undefined blocks to exist in the first place... Blocks.prototype.insert isn't being called with undefined b, as far as I can tell
+                var removed = 0;
+                for(var i=0;i<this.list.length;++i)
+                {
+                  if(!this.list[i])
+                  {
+                    this.list.splice(i, 1);
+                    ++removed;
+                    --i;
+                  }
+                  else
+                  {
+                    this.list[i].blockInd -= removed;
+                  }
+                }
+                // CPNetVisualizer edit end
+                
                 var last = this.list.length - 1;
                 var swapBlock = this.list[last];
                 this.list.length = last;
@@ -3967,12 +3987,12 @@ var cola;
         Layout.dragStart = function (d) {
             d.fixed |= 2; // set bit 2
             d.px = d.x, d.py = d.y; // set velocity to zero
-            d.__dragged__ = false; // CPNetVisualization edit - Reset dragged
+            d.__dragged__ = false; // CPNetVisualizer edit - Reset dragged
         };
         Layout.dragEnd = function (d) {
-            if(!d.__dragged__ && typeof(d.onClick) === "function") // CPNetVisualization edit - Added onClick
+            if(!d.__dragged__ && typeof(d.onClick) === "function") // CPNetVisualizer edit - Added onClick
                 d.onClick(d);
-            d.__dragged__ = false; // CPNetVisualization edit - Reset dragged
+            d.__dragged__ = false; // CPNetVisualizer edit - Reset dragged
             d.fixed &= ~6; // unset bits 2 and 3
             //d.fixed = 0;
         };
@@ -4050,7 +4070,7 @@ var cola;
                         .origin(function (d) { return d; })
                         .on("dragstart.d3adaptor", cola.Layout.dragStart)
                         .on("drag.d3adaptor", function (d) {
-                        d.__dragged__ = true; // CPNetVisualization edit - to know for onClick whether the node was dragged or just clicked
+                        d.__dragged__ = true; // CPNetVisualizer edit - to know for onClick whether the node was dragged or just clicked
                         d.px = d3.event.x, d.py = d3.event.y;
                         d3layout.resume(); // restart annealing
                     })

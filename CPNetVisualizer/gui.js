@@ -45,6 +45,8 @@ var CPTTable = document.getElementById("cpt-table");
 var MessageBar = document.getElementById("message-bar");
 var SavedNotifier = document.getElementById("saved-notifier");
 
+var DiscardUnsavedChangesMessagebox = document.getElementById("discard-unsaved-changes-messagebox");
+var MessageboxModalBackground = document.getElementById("messagebox-modal-background");
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,10 +68,10 @@ SVGDragger.onmouseup = function() {
 	if(SVGDragging && !SVGDragged)
 		SelectNode(null); // Clicking on the background unselects the nodes
 };
-document.onmouseup = function() { // Mouse up for everything
+document.addEventListener('mouseup', function() { // Mouse up for everything
 	SVGDragging = false;
-};
-document.onmousemove = function(event) { // Mouse move for everything
+}, false);
+document.addEventListener('mousemove', function(event) { // Mouse move for everything
 	if(SVGDragging)
 	{
 		event.stopPropagation(); // Keep from selecting everything
@@ -80,9 +82,10 @@ document.onmousemove = function(event) { // Mouse move for everything
 		D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")"); // Apply it
 		SVGDragged = true;
 	}
-};
+}, false);
 
-function OnScroll(event) {
+function OnScroll(event)
+{
 	var ScrollDelta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
 	SVGScale += ScrollDelta * 0.1;
 	if(SVGScale < 0.1)
@@ -103,6 +106,62 @@ function CenterViewport()
 	SVGScale = 1;
 	D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////
+// MESSAGE BOX
+////////////////////////////////////////////////////////////////////////////////////////////////
+
+var CurrentMessageBox = null;
+function ShowMessageBox(MessageBox, ButtonClick)
+{
+	if(CurrentMessageBox)
+		return;
+	
+	var Buttons = null;
+	for(var i=0;i<MessageBox.childNodes.length;++i)
+	{
+		if(MessageBox.childNodes[i].className === "buttonlist")
+		{
+			Buttons = MessageBox.childNodes[i].childNodes;
+			break;
+		}
+	}
+	
+	if(!Buttons)
+		return;
+	
+	for(var i=0;i<Buttons.length;++i)
+	{
+		if(Buttons[i].type !== "button")
+			continue;
+
+		Buttons[i].onclick = function() {
+			ButtonClick(this.value);
+			MessageBox.style.display = "none";
+			MessageboxModalBackground.style.display = "none";
+			CurrentMessageBox = null;
+		}
+	}
+	
+	CurrentMessageBox = MessageBox;
+	MessageBox.style.display = "inline";
+	MessageboxModalBackground.style.display = "inline";
+	RepositionMessageBox();
+}
+
+function RepositionMessageBox()
+{
+	if(!CurrentMessageBox)
+		return;
+	CurrentMessageBox.style.top = (document.documentElement.clientHeight/2 - CurrentMessageBox.clientHeight/2) + "px";
+	CurrentMessageBox.style.left = (document.documentElement.clientWidth/2 - CurrentMessageBox.clientWidth/2) + "px";
+}
+
+window.addEventListener('resize', function() {
+	RepositionMessageBox();
+}, false);
 
 
 
@@ -314,54 +373,75 @@ function SetSaved(Saved)
 	SavedNotifier.innerHTML = "currently " + (Saved ? "saved" : "UNSAVED");
 }
 
+function AskForOverwrite(Func)
+{
+	if(Saved)
+	{
+		Func();
+	}
+	else
+	{
+		ShowMessageBox(DiscardUnsavedChangesMessagebox, function(button) {
+			if(button === "Yes")
+				Func();
+		});
+	}
+}
+
 function LoadDefaultCPNet()
 {
-	// Reset the graph
-	SelectNode(null);
-	GraphNodes = [];
+	AskForOverwrite(function()
+	{
+		// Reset the graph
+		SelectNode(null);
+		GraphNodes = [];
 
-	// Create nodes
-	var WeatherNode = new Node("Weather");
-	var TimeNode = new Node("Time");
-	var ActivityNode = new Node("Activity");
-	var FriendNode = new Node("Friend");
+		// Create nodes
+		var WeatherNode = new Node("Weather");
+		var TimeNode = new Node("Time");
+		var ActivityNode = new Node("Activity");
+		var FriendNode = new Node("Friend");
 
-	// Set their domain
-	WeatherNode.SetDomain(["Fair", "Rain"]);
-	ActivityNode.SetDomain(["Cycling", "Table Tennis"]);
-	TimeNode.SetDomain(["Morning", "Afternoon"]);
-	FriendNode.SetDomain(["Emily", "Henry"]);
+		// Set their domain
+		WeatherNode.SetDomain(["Fair", "Rain"]);
+		ActivityNode.SetDomain(["Cycling", "Table Tennis"]);
+		TimeNode.SetDomain(["Morning", "Afternoon"]);
+		FriendNode.SetDomain(["Emily", "Henry"]);
 
-	// Link them
-	WeatherNode.LinkTo(ActivityNode);
-	TimeNode.LinkTo(ActivityNode);
-	ActivityNode.LinkTo(FriendNode);
+		// Link them
+		WeatherNode.LinkTo(ActivityNode);
+		TimeNode.LinkTo(ActivityNode);
+		ActivityNode.LinkTo(FriendNode);
 
-	// TODO: Build preferences
+		// TODO: Build preferences
 
-	// Add them to the graph
-	WeatherNode.AddToGraph(GraphNodes);
-	TimeNode.AddToGraph(GraphNodes);
-	ActivityNode.AddToGraph(GraphNodes);
-	FriendNode.AddToGraph(GraphNodes);
-	UpdateGraph();
+		// Add them to the graph
+		WeatherNode.AddToGraph(GraphNodes);
+		TimeNode.AddToGraph(GraphNodes);
+		ActivityNode.AddToGraph(GraphNodes);
+		FriendNode.AddToGraph(GraphNodes);
+		UpdateGraph();
 
-	// Set to saved
-	SetSaved(true);
+		// Set to saved
+		SetSaved(true);
+	});
 }
 
 function LoadNewCPNet()
 {
-	// Reset the graph
-	SelectNode(null);
-	GraphNodes = [];
+	AskForOverwrite(function()
+	{
+		// Reset the graph
+		SelectNode(null);
+		GraphNodes = [];
+		
+		// Create and add node to the graph
+		(new Node("root node")).AddToGraph(GraphNodes);
+		UpdateGraph();
 
-	// Create and add node to the graph
-	(new Node("root node")).AddToGraph(GraphNodes);
-	UpdateGraph();
-
-	// Set to saved
-	SetSaved(true);
+		// Set to saved
+		SetSaved(true);
+	});
 }
 
 function LoadCPNetFromFile()
@@ -374,54 +454,55 @@ function LoadCPNetFromFile()
 		return;
 	}
 
-	// TODO: Ask user if they want to overwrite their current cp-net if it's unsaved
+	AskForOverwrite(function()
+	{
+		// Set the file upload button's change event handler
+		FileUploadButton.addEventListener('change', function (event) {
+			// Get first selected file
+			var File = event.target.files;
+			if(File.length <= 0)
+				return;
+			File = File[0];
 
-	// Set the file upload button's change event handler
-	FileUploadButton.addEventListener('change', function (event) {
-		// Get first selected file
-		var File = event.target.files;
-		if(File.length <= 0)
-			return;
-		File = File[0];
+			// Read file contents
+			var Reader = new FileReader();
 
-		// Read file contents
-		var Reader = new FileReader();
+			// Closure to capture the file information.
+			Reader.onload = function(e) {
+				var graph = XMLToGraph(e.target.result);
+				if(graph)
+				{
+					// Get file name
+					CPNetNameInput.value = File.name.replace(/\.[^/.]+$/, ""); // Remove the file extension from the name
 
-		// Closure to capture the file information.
-		Reader.onload = function(e) {
-			var graph = XMLToGraph(e.target.result);
-			if(graph)
-			{
-				// Get file name
-				CPNetNameInput.value = File.name.replace(/\.[^/.]+$/, ""); // Remove the file extension from the name
+					// Set graph
+					SelectNode(null);
+					GraphNodes = graph.nodes;
+					UpdateGraph();
 
-				// Set graph
-				SelectNode(null);
-				GraphNodes = graph.nodes;
-				UpdateGraph();
+					// Show errors
+					if(graph.errors.length > 0)
+						MessageBar.innerHTML = "Loading errors:<br>" + graph.errors.join("<br>");
 
-				// Show errors
-				if(graph.errors.length > 0)
-					MessageBar.innerHTML = "Loading errors:<br>" + graph.errors.join("<br>");
+					// Set to saved
+					SetSaved(true);
+				}
+				else
+				{
+					MessageBar.innerHTML = "Unable to load file due to bad XML.";
+				}
 
-				// Set to saved
-				SetSaved(true);
-			}
-			else
-			{
-				MessageBar.innerHTML = "Unable to load file due to bad XML.";
-			}
+				FileUploadButton.value = "";
+			};
 
-			FileUploadButton.value = "";
-		};
+			// Read in the image file as a data URL.
+			Reader.readAsText(File);
+		}, false);
 
-		// Read in the image file as a data URL.
-		Reader.readAsText(File);
-	}, false);
-
-	// Open the file upload dialog
-	FileUploadButton.value = ""; // Clear the file upload button's current file so that a new file can be loaded
-	FileUploadButton.click(); // Simulate clicking the button
+		// Open the file upload dialog
+		FileUploadButton.value = ""; // Clear the file upload button's current file so that a new file can be loaded
+		FileUploadButton.click(); // Simulate clicking the button
+	});
 }
 
 function SaveCPNetAsXML()
@@ -443,10 +524,9 @@ function SaveCPNetAsXML()
 }
 
 // Load the default CPNet when the window finishes loading
-window.onload = function()
-{
+window.addEventListener('load', function() {
 	LoadDefaultCPNet();
-}
+}, false);
 
 
 
