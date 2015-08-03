@@ -13,7 +13,8 @@ function Node(Name_)
 	this.Domain = [];
 	this.CPT = []; // Multidimensional array. CPT[parent0-domain-index][parent1-domain-index][...][preference-order-index]
 	this.CPTListCache = null; // Cached list of the this.CPT multidimensional array. Lists every end value of this.CPT. Set to null whenever this.CPT changes.
-
+	this.DegeneracyCache = []; // Cached return value of IsParentDegenerate for each parent. Cleared when this.CPT changes (including preference changes).
+	
 	// Sets this node's name
 	// Optionally, if GraphNodes is specified, does not set name and returns false if the given name matches any existing node name
 	// Returns false if the new name is empty (blank or only whitespace)
@@ -179,6 +180,7 @@ function Node(Name_)
 					CPTSection[AddedIndices[j]] = CloneCPTArray(oldCPTSection[0]);
 			});
 			this.Children[i].CPTListCache = null;
+			this.Children[i].DegeneracyCache = [];
 		}
 	}
 
@@ -227,7 +229,8 @@ function Node(Name_)
 				CPTSection.push(CloneCPTArray(section));
 		});
 		TargetNode.CPTListCache = null;
-
+		TargetNode.DegeneracyCache = [];
+		
 		return true;
 	}
 
@@ -259,6 +262,7 @@ function Node(Name_)
 				CPTSection[i] = section[i];
 		});
 		TargetNode.CPTListCache = null;
+		TargetNode.DegeneracyCache = [];
 	}
 
 	// Returns true if this node is a parent of TargetNode
@@ -319,12 +323,14 @@ function Node(Name_)
 		this.Children = [];
 		this.CPT = [];
 		this.CPTListCache = null;
+		this.DegeneracyCache = [];
 	}
 
 	// Returns the multidimensional CPT as a list where each end node in the CPT is a entry in the list entry of {condition:path-to-end-node, preference:end-node}
-	this.ListCPT = function ()
+	// Pass true to ClearCache to ignore the cached list, if available, and regenerate the list (automatically done if the CPT changes)
+	this.ListCPT = function (ClearCache)
 	{
-		if(this.CPTListCache)
+		if(!ClearCache && this.CPTListCache)
 			return this.CPTListCache;
 
 		var NumParents = this.Parents.length;
@@ -343,6 +349,15 @@ function Node(Name_)
 		return this.CPTListCache;
 	}
 
+	// Returns the number of CPT entries in this node (aka the number of entries in the array returned by this.ListCPT), with minimal computation
+	this.GetCPTListSize = function ()
+	{
+		var CPTListSize = 1;
+		for(var i=0;i<this.Parents.length;++i)
+			CPTListSize *= this.Parents[i].Domain.length;
+		return CPTListSize;
+	}
+
 	// Preference getter/setter
 	this.SetPreference = function (Condition, Preference)
 	{
@@ -356,6 +371,8 @@ function Node(Name_)
 		PrevPref.length = 0; // Clear existing preference
 		for(var i=0;i<Preference.length;++i)
 			PrevPref[i] = Preference[i];
+			
+		this.UpdatePreferences();
 	}
 	this.GetPreference = function (Condition)
 	{
@@ -367,7 +384,14 @@ function Node(Name_)
 			PrevPref = PrevPref[Condition[i]];
 		return PrevPref;
 	}
-
+	
+	// Call this whenever a preference changes. Automatically called from this.SetPreference, however not called when preferences
+	// are changed manually (such as editing the list returned from this.ListCPT())
+	this.UpdatePreferences = function()
+	{
+		this.DegeneracyCache = [];
+	}
+	
 	// Returns true if the given StartingNode is part of a cycle
 	// Does NOT detect if a cycle can be reached from this node; only if THIS node is PART OF a cycle
 	this.IsCyclic = function()
@@ -402,9 +426,14 @@ function Node(Name_)
 
 	// Returns true if this node's given parent is degenerate (has no effect on the preferences of this node)
 	// A node can only be degenerate relative to the child node; a degenerate parent of this node might not be degenerate for another of its child nodes
-	// Returns 0 if not degenerate, 1 if degenerate, 2 if possibly degenerate, -1 if an error
-	this.ParentIsDegenerate = function(ParentToTestIndex)
+	// Returns 0 if not degenerate, 1 if degenerate, 2 if possibly degenerate, -1 if an error, -2 if over cap
+	// Pass true to ClearCache to clear the cache of the return of this function, and recalculate degeneracy (automatically done if the CPT changes)
+	// Pass a maximum number of CPT list entries to handle without aborting to SizeCap. If this.GetCPTListSize() > SizeCap, then this will return the cached value or -2
+	this.IsParentDegenerate = function(ParentToTestIndex, SizeCap, ClearCache)
 	{
+		if(!ClearCache && typeof(this.DegeneracyCache[ParentToTestIndex]) === 'number')
+			return this.DegeneracyCache[ParentToTestIndex];
+			
 		// Method: For every combination of domains in other parent nodes - excluding the given testing parent - test whether all the domains of the testing parent are the same
 		// So for 3 parents, each 3 domain, so this.CPT[0-2][0-2][0-2], testing 2nd parent, test whether:
 		//    0,0,0
@@ -412,13 +441,18 @@ function Node(Name_)
 		//    0,2,0
 		// are equal, then test it for 1,0,0  1,1,0  1,2,0  etc... (every combination of other nodes' domains)
 		
-		var PossibleCombinations = 1;
-		for(var i=0;i<this.Parents.length;++i)
-			PossibleCombinations *= this.Parents[i].Domain.length;
-			
+		var PossibleCombinations = this.GetCPTListSize();
 		if(PossibleCombinations == 1)
-				return true;
-			
+		{
+			this.DegeneracyCache[ParentToTestIndex] = 1;
+			return 1;
+		}
+		else if(typeof(SizeCap) === 'number' && PossibleCombinations > SizeCap)
+		{
+			// Already would have returned a cache if it exists, so just return error -2 now
+			return -2;
+		}
+		
 		var PrevPref = null;
 		for(var i=0;i<PossibleCombinations;++i)
 		{
@@ -450,8 +484,11 @@ function Node(Name_)
 			else
 			{
 				if(pref.length != PrevPref.length)
+				{
+					this.DegeneracyCache[ParentToTestIndex] = undefined;
 					return -1; // This shouldn't happen...
-					
+				}
+				
 				var equal = true;
 				for(var x=0;x<pref.length;++x)
 				{
@@ -463,10 +500,14 @@ function Node(Name_)
 				}
 				
 				if(!equal)
+				{
+					this.DegeneracyCache[ParentToTestIndex] = 0;
 					return 0; // Not degenerate in parent!
+				}
 			}
 		}
 		
+		this.DegeneracyCache[ParentToTestIndex] = 1;
 		return 1;
 	}
 

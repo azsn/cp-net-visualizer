@@ -21,8 +21,6 @@
 			}
 
 			.link {
-				fill: none;
-				stroke: #000;
 				stroke-width: 1.5px;
 				opacity: 0.4;
 				marker-end: url(#end-arrow);
@@ -57,7 +55,6 @@
 			
 			<p class="header">options</p>
 			<input type="checkbox" id="allow-cycles-checkbox" onchange="AllowCyclesCheckChanged()"/> <p class="inlinetext">Allow Cycles</p><br>
-			<input type="checkbox" id="autodetect-degeneracy-checkbox" onchange="AutodetectDegeneracyCheckChanged()" checked/> <p class="inlinetext">Autodetect Degeneracy</p><br>
 			<input type="number" id="max-in-nodes-selector" min=1 max=20 value=5 style="margin-top:0.3em;width:5em;" onchange="MaxInNodesSelectorChanged()"/> <p class="inlinetext">Max In-Nodes</p><br>
 			<div class="spacer"></div>
 
@@ -85,7 +82,9 @@
 			<p class="header">parents</p>
 
 			<table id="parents-list-table" cellpadding="0" cellspacing="0"></table>
-
+			<div class="smallspacer"></div>
+			<input type="button" id="manual-detect-degenaracy-button" value="Detect Degeneracy in Parents" onclick="ManualDetectDegeneracy()"/>
+			
 			<div class="spacer"></div>
 			<p class="header">conditional<br>preference table</p>
 			<table id="cpt-table" cellpadding="0" cellspacing="0"></table>

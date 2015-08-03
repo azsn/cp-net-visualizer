@@ -230,6 +230,11 @@ Parents and CPT tables
 	white-space: nowrap;
 }
 
+#manual-detect-degenaracy-button
+{
+	display: none;
+}
+
 #cpt-table p
 {
 	width: 100%;

@@ -1,5 +1,6 @@
 // Vars
 var DefaultNodeRadius = 10; // const
+var MaxCPTEntriesBeforeManualDegeneracyDetection = 30000;
 var Linking = false;
 var SelectedNode = null;
 var Saved = true;
@@ -9,16 +10,16 @@ var GraphNodes = [];
 var D3CoLa = cola.d3adaptor().avoidOverlaps(true).flowLayout("y", 60).symmetricDiffLinkLengths(12).handleDisconnected(false);
 var D3Svg = d3.select("#main-svg-graph");
 D3Svg.append('svg:defs') // Define arrow markers for graph links
-	  .append('svg:marker')
-	   .attr('id', 'end-arrow')
-	   .attr('viewBox', '0 -5 10 10')
-	   .attr('refX', 8)
-	   .attr('markerWidth', 6)
-	   .attr('markerHeight', 6)
-	   .attr('orient', 'auto')
-	   .append('svg:path')
-	    .attr('d', 'M0,-5L10,0L0,5')
-	    .attr('fill', '#000');
+		  .append('svg:marker')
+		   .attr('id', 'end-arrow')
+		   .attr('viewBox', '0 -5 10 10')
+		   .attr('refX', 8)
+		   .attr('markerWidth', 6)
+		   .attr('markerHeight', 6)
+		   .attr('orient', 'auto')
+		   .append('svg:path')
+		    .attr('d', 'M0,-5L10,0L0,5')
+				.attr('fill', '#000');
 
 // Get elements
 var MainSVG = document.getElementById("main-svg");
@@ -29,7 +30,7 @@ var LinkNodeButton = document.getElementById("link-node-button");
 var AffixNodeButton = document.getElementById("affix-node-button");
 
 var AllowCyclesCheckbox = document.getElementById("allow-cycles-checkbox");
-var AutodetectDegeneracy = document.getElementById("autodetect-degeneracy-checkbox");
+var ManualDetectDegeneracyButton = document.getElementById("manual-detect-degenaracy-button");
 var MaxInNodesSelector = document.getElementById("max-in-nodes-selector");
 
 var CPNetNameInput = document.getElementById("cp-net-name-input");
@@ -209,9 +210,14 @@ function AllowCyclesCheckChanged()
 	AllowCycles = AllowCyclesCheckbox.checked;
 }
 
-function AutodetectDegeneracyCheckChanged()
+function ManualDetectDegeneracy()
 {
-	// TODO
+	if(SelectedNode)
+	{
+		for(var i=0;i<SelectedNode.Parents.length;++i)
+			SelectedNode.IsParentDegenerate(i); // Don't do anything with the value; just let it cache it
+		UpdateGraph(); // Then update the GUI now that the value is cached
+	}
 }
 
 function MaxInNodesSelectorChanged()
@@ -298,12 +304,9 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 	// If PreferenceIndex is odd, then it is a succeeds indicator, so toggle it
 	if(PreferenceIndex % 2 === 1)
 	{
-		// Toggle
-		Preference[PreferenceIndex] = !Preference[PreferenceIndex];
-
-		// Update GUI
-		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode); // Don't refresh the entire GUI, just the CPT table
-		SetSaved(false);
+		Preference[PreferenceIndex] = !Preference[PreferenceIndex]; // Toggle
+		SelectedNode.UpdatePreferences();
+		UpdateGraph();
 		return;
 	}
 
@@ -311,8 +314,8 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 	if(ToggleDisable)
 	{
 		Preference[PreferenceIndex] = (-Preference[PreferenceIndex]) - 1;
-		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
-		SetSaved(false);
+		SelectedNode.UpdatePreferences();
+		UpdateGraph();
 		return;
 	}
 
@@ -360,8 +363,8 @@ function CPTListItemClicked(CPTListIndex, PreferenceIndex, ToggleDisable)
 	Preference[PreferenceIndex] = NextDomainIndex;
 
 	// Update GUI
-	CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
-	SetSaved(false);
+	SelectedNode.UpdatePreferences();
+	UpdateGraph();
 }
 
 
@@ -551,9 +554,9 @@ function SelectNode(SelectedNode)
 	window.SelectedNode = SelectedNode;
 	UpdateGUI();
 	
-	if(SelectedNode)
-		for(var i=0;i<SelectedNode.Parents.length;++i)
-			console.log(SelectedNode.Parents[i].Name + "->" + SelectedNode.Name + " degenerate: " + SelectedNode.ParentIsDegenerate(i));
+	// if(SelectedNode)
+	// 	for(var i=0;i<SelectedNode.Parents.length;++i)
+	// 		console.log(SelectedNode.Parents[i].Name + "->" + SelectedNode.Name + " degenerate: " + SelectedNode.ParentIsDegenerate(i));
 }
 
 // Affixes a node so that it does not move (unless manually dragged)
@@ -636,8 +639,18 @@ function UpdateGraph()
 	// Build links
 	var GraphLinks = [];
 	for(var i=0;i<GraphNodes.length;++i)
+	{
 		for(var j=0;j<GraphNodes[i].Parents.length;++j)
-			GraphLinks.push({"source":GraphNodes[i].Parents[j], "target":GraphNodes[i]});
+		{
+			var degenerateLink = GraphNodes[i].IsParentDegenerate(j, MaxCPTEntriesBeforeManualDegeneracyDetection);
+			var color = "#000";
+			if(degenerateLink == 1)
+				color = "red";
+			else if(degenerateLink == 2)
+				color = "orange";
+			GraphLinks.push({"source":GraphNodes[i].Parents[j], "target":GraphNodes[i], "color":color});
+		}
+	}
 
 	// Set properties for all the nodes
 	for(var i=0;i<GraphNodes.length;++i)
@@ -679,6 +692,8 @@ function UpdateGraph()
 			 .attr("class", "link");
 	SVGLinks.exit().remove();
 	SVGLinks = D3Svg.selectAll(".link");
+
+	SVGLinks.attr("stroke", function (link) { return link.color; });
 
 	// Update the d3cola tick function
 	D3CoLa.on("tick", function () {
@@ -751,6 +766,7 @@ function UpdateGUI()
 		DomainListTextarea.value = SelectedNode.Domain.join("\n");
 		ParentsListTable.style.backgroundColor = "white";
 		ParentsListTable.innerHTML = GenerateParentsListHTML(SelectedNode);
+		ManualDetectDegeneracyButton.style.display = SelectedNode.GetCPTListSize() > MaxCPTEntriesBeforeManualDegeneracyDetection ? "block" : "none";
 		CPTTable.style.backgroundColor = "white";
 		CPTTable.innerHTML = GenerateCPTHTML(SelectedNode);
 	}
@@ -774,6 +790,7 @@ function UpdateGUI()
 		DomainListTextarea.value = "";
 		ParentsListTable.style.backgroundColor = "#EEEEEE";
 		ParentsListTable.innerHTML = "";
+		ManualDetectDegeneracyButton.style.display = "none";
 		CPTTable.style.backgroundColor = "#EEEEEE";
 		CPTTable.innerHTML = "";
 	}
@@ -785,11 +802,30 @@ function GenerateParentsListHTML(Node)
 	var HTML = "";
 	for(var i=0;i<Node.Parents.length;++i)
 	{
+		// Degeneracy testing
+		var degenerateLink = Node.IsParentDegenerate(i, MaxCPTEntriesBeforeManualDegeneracyDetection);
+		var color = "#000";
+		var type = "";
+		switch(degenerateLink)
+		{
+			case 1:
+				color = "red";
+				type = " (degenerate)";
+				break;
+			case 2:
+				color = "orange";
+				type = " (possibly deg.)";
+				break;
+			case -2:
+				break;
+		}
+			
+		// Create HTML
 		HTML += "<tr class='parents-table-row' onclick='SelectParentItemClicked(" + i + ")'> <td width='10%'> <img src='removeitem.png' alt='Remove Node' onclick='RemoveParentNodeButtonClicked(" + i + ")'/> </td>";
-		HTML += "<td width='90%'> <p>" + Node.Parents[i].Name + "</p>";
+		HTML += "<td width='90%'> <p style='color:" + color + ";'>" + Node.Parents[i].Name + type + "</p>";
 
 		for(var j=0;j<Node.Parents[i].Domain.length;++j)
-			HTML += "<p style='font-size:0.6em;padding:0;'>&emsp;&emsp;" + String.fromCharCode(97 + i) + (j+1) + ": " + Node.Parents[i].Domain[j] + "</p>";
+			HTML += "<p style='font-size:0.6em;padding:0;color:" + color + ";'>&emsp;&emsp;" + String.fromCharCode(97 + i) + (j+1) + ": " + Node.Parents[i].Domain[j] + "</p>";
 		HTML += "</td> </tr>";
 	}
 
