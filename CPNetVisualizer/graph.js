@@ -655,6 +655,12 @@ function XMLToGraph(XmlString)
 	if(!Root || !Root.childNodes || Root.childNodes.length <= 0)
 		return null;
 
+	// Allow anything to be imported
+	var DefaultMaxInNodes = MaxInNodes;
+	var DefaultAllowCycles = AllowCycles;
+	MaxInNodes = 20;
+	AllowCycles = true;
+	
 	// Vars
 	var GraphNodes = [];
 	var Errors = [];
@@ -763,7 +769,8 @@ readPreferenceStatementsLoop: // Loop label
 			if(conditionIndex < 0) { Errors.push("Invalid value on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID); continue readPreferenceStatementsLoop; }
 
 			// Add the condition to the node
-			if(conditionCausingNode.LinkTo(affectingNode) !== true) { Errors.push("Unlinkable node on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID); continue readPreferenceStatementsLoop; }
+			var linkStatus = conditionCausingNode.LinkTo(affectingNode);
+			if(linkStatus !== true) { Errors.push("Unlinkable node on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID + "because: " + linkStatus); continue readPreferenceStatementsLoop; }
 			condition[affectingNode.Parents.indexOf(conditionCausingNode)] = conditionIndex;
 		}
 
@@ -773,6 +780,8 @@ readPreferenceStatementsLoop: // Loop label
 		affectingNode.SetPreference(condition, preference);
 	}
 
+	AllowCycles = DefaultAllowCycles;
+	MaxInNodes = DefaultMaxInNodes;
 	return {nodes:GraphNodes, errors:Errors};
 }
 
