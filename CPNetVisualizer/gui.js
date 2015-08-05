@@ -5,6 +5,7 @@ var Linking = false;
 var SelectedNode = null;
 var Saved = true;
 var GraphNodes = [];
+var ShowCPTsInGraph = false;
 
 // Initialize d3cola and the SVG
 var D3CoLa = cola.d3adaptor().avoidOverlaps(true).flowLayout("y", 60).symmetricDiffLinkLengths(12).handleDisconnected(false);
@@ -30,7 +31,7 @@ var LinkNodeButton = document.getElementById("link-node-button");
 var AffixNodeButton = document.getElementById("affix-node-button");
 
 var AllowCyclesCheckbox = document.getElementById("allow-cycles-checkbox");
-var ManualDetectDegeneracyButton = document.getElementById("manual-detect-degenaracy-button");
+var ShowCPTsInGraphCheckbox = document.getElementById("show-cpts-in-graph-checkbox");
 var MaxInNodesSelector = document.getElementById("max-in-nodes-selector");
 
 var CPNetNameInput = document.getElementById("cp-net-name-input");
@@ -41,6 +42,7 @@ var NodeNameInput = document.getElementById("node-name-input");
 
 var DomainListTextarea = document.getElementById("domain-list-textarea");
 var ParentsListTable = document.getElementById("parents-list-table");
+var ManualDetectDegeneracyButton = document.getElementById("manual-detect-degenaracy-button"); // Only shown with large CPTs
 var CPTTable = document.getElementById("cpt-table");
 
 var MessageBar = document.getElementById("message-bar");
@@ -57,7 +59,7 @@ var MessageboxModalBackground = document.getElementById("messagebox-modal-backgr
 var SVGDragging = false;
 var SVGDragged = false;
 var SVGTranslation = [document.documentElement.clientWidth/2, document.documentElement.clientHeight/2];
-var SVGScale = 1;
+var SVGScale = 3;
 D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 
 SVGDragger.onmousedown = function(event) { // SVG dragger mouse down
@@ -89,8 +91,8 @@ function OnScroll(event)
 {
 	var ScrollDelta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
 	SVGScale += ScrollDelta * 0.1;
-	if(SVGScale < 0.1)
-		SVGScale = 0.1;
+	if(SVGScale < 0.5)
+		SVGScale = 0.5;
 	else if(SVGScale > 10)
 		SVGScale = 10;
 	D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
@@ -104,7 +106,7 @@ SVGDragger.addEventListener("mousewheel", OnScroll); // IE9, Chrome, Safari, Ope
 function CenterViewport()
 {
 	SVGTranslation = [document.documentElement.clientWidth/2, document.documentElement.clientHeight/2];
-	SVGScale = 1;
+	SVGScale = 3;
 	D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 }
 
@@ -210,6 +212,12 @@ function AllowCyclesCheckChanged()
 	AllowCycles = AllowCyclesCheckbox.checked;
 }
 
+function ShowCPTsInGraphCheckChanged()
+{
+	ShowCPTsInGraph = ShowCPTsInGraphCheckbox.checked;
+	UpdateGraph();
+}
+
 function ManualDetectDegeneracy()
 {
 	if(SelectedNode)
@@ -235,7 +243,7 @@ function NodeNameInputChanged() // set to oninput; called on every character typ
 
 	var Value = NodeNameInput.value;
 	SelectedNode.SetName(NodeNameInput.value, GraphNodes);
-	UpdateGUI();
+	UpdateGraph();
 	NodeNameInput.value = Value; // So that the user can temporarily type unallowed names into the textfield (such as erasing the whole field before entering a name)
 	SetSaved(false);
 }
@@ -434,10 +442,13 @@ function LoadDefaultCPNet()
 		TimeNode.AddToGraph(GraphNodes);
 		ActivityNode.AddToGraph(GraphNodes);
 		FriendNode.AddToGraph(GraphNodes);
+		AffixNode(ActivityNode, true); // Affix the node...
 		UpdateGraph();
 
 		// Set to saved
 		SetSaved(true);
+		
+		window.setTimeout(function() { AffixNode(ActivityNode, false);}, 100); // Then unaffix it 100ms later. Keeps the ActivityNode centered on the screen
 	});
 }
 
@@ -669,36 +680,76 @@ function UpdateGraph()
 
 	// Add and remove SVG node elements based on the new graph data
 	var SVGNodes = D3Svg.selectAll(".node") // Select all the SVG node elements (those where class=="node")
-						.data(GraphNodes, function (node) { return node.Name; }); // Apply the new node data to the SVG. Second param sets thename as the unique identifier, so that old and new nodes are created and removed properly
+											 .data(GraphNodes, function (node) { return node.Name; }); // Apply the new node data to the SVG. Second param sets thename as the unique identifier, so that old and new nodes are created and removed properly
 	SVGNodes.enter() // Gets a list of the newly-added node(s)
-			.append("circle") // Create a new SVG element for the new node(s)
-			 .attr("class", "node")
-			 .attr("n", function (node) { return node.Name; })
-			 .attr("r", function (node) { return node.radius; })
-			 .style("fill", function (node) { return node.color; })
-			 .call(D3CoLa.drag); // Call this to allow the SVG element to be draggable by d3cola
+					 .append("g")
+					  .attr("class", "node")
+						.attr("n", function (node) { return node.Name; })
+						.call(D3CoLa.drag); // Call this to allow the SVG element to be draggable by d3cola
 	SVGNodes.exit() // Gets a list of nodes that need to be removed
-			.remove(); // Remove the old nodes that are no longer in the graph
-	SVGNodes = D3Svg.selectAll(".node"); // Reselect the SVG node elements since things have changed (is this necessary?)
-
-	SVGNodes.selectAll("title").remove(); // Remove all the nodes titles and reset them (TODO: There is probably a better way to do this...)
-	SVGNodes.append("title").text(function (node) { return node.Name; });
-
+					 .remove(); // Remove the old nodes that are no longer in the graph
+	
+	// Add visuals to node elements
+	SVGNodes.selectAll(".node-name-text").remove();
+	SVGNodes.selectAll(".node-cpt-text").remove();
+	SVGNodes.selectAll("title").remove();
+	SVGNodes.append("circle")
+					 .attr("class", "node-circle")
+					 .attr("r", function (node) { return node.radius; });
+	SVGNodes.append("text")
+					 .attr("class", "node-name-text")
+					 .text(function(node) { var length = 10; return node.Name.length > length ? node.Name.substring(0, length) : node.Name; });
+	SVGNodes.append("title")
+					 .text(function(node) { return node.Name; });
+	
+	if(ShowCPTsInGraph)
+	{
+		SVGNodes.append("foreignObject")
+						 .attr("class", "node-name-text node-cpt-text")
+						 .attr("x", function(node) { return (node.radius*2) + "px"; })
+						 .attr("width", "500px")
+						 .html(function(node) {
+								var cplist = node.ListCPT();
+								var cpliststring = "";
+								for(var i=0;i<Math.min(cplist.length, 4);++i)
+								{
+									var conditionStr = "";
+									for(var j=0;j<cplist[i].condition.length;++j)
+										conditionStr += String.fromCharCode(97 + j) + (cplist[i].condition[j]+1);
+									
+									var prefStr = "";
+									
+									for(var j=0;j<cplist[i].preference.length;++j)
+									{
+										if(j%2 === 1)
+											prefStr += (cplist[i].preference[j] ? " ≽ " : " ≻ ");
+										else
+											prefStr += node.Domain[cplist[i].preference[j] < 0 ? (-cplist[i].preference[j] - 1) : cplist[i].preference[j]];
+									}
+									
+									if(conditionStr)
+										cpliststring += (i==0?"":"<br>") + conditionStr + ": " + prefStr;
+									else
+										cpliststring += (i==0?"":"<br>") + prefStr;
+								}
+								return cpliststring;
+						 });
+	}
+	
 	// Add and remove SVG link elements based on the new graph data
 	var SVGLinks = D3Svg.selectAll(".link")
-						.data(GraphLinks, function (link) { return link.source.Name + "," + link.target.Name; }); // Second param: give d3 a unique id for each link
+											 .data(GraphLinks, function (link) { return link.source.Name + "," + link.target.Name; }); // Second param: give d3 a unique id for each link
 	SVGLinks.enter()
-			.insert("D3Svg:path", "aftercrosshair")
-			 .attr("class", "link");
+					 .insert("D3Svg:path", "aftercrosshair")
+					 .attr("class", "link");
 	SVGLinks.exit().remove();
-	SVGLinks = D3Svg.selectAll(".link");
-
+	
+	// Set links properties
 	SVGLinks.attr("stroke", function (link) { return link.color; });
 
 	// Update the d3cola tick function
 	D3CoLa.on("tick", function () {
-		SVGNodes.attr("cx", function (node) { return node.x; }) // Update the positions of the SVG node elements
-				.attr("cy", function (node) { return node.y; });
+		SVGNodes.attr("transform", function (node) { return "translate(" + node.x + "," + node.y + ")"; }); // Update the positions of the SVG node elements
 
 		SVGLinks.attr('d', function (link) { // Lots of stuff from the original d3cola force-directed graph example. Positions the SVG link elements, it seems
 			var deltaX = link.target.x - link.source.x,
@@ -735,12 +786,7 @@ function UpdateGraph()
 function UpdateGUI()
 {
 	// Stroke the selected node red
-	D3Svg.selectAll(".node").attr("style", function (node) {
-		if(node === SelectedNode)
-			return "stroke:red;";
-		else
-			return "stroke:white;";
-	});
+	D3Svg.selectAll(".node-circle").attr("style", function (node) { return node === SelectedNode ? "fill:#ff7f7f;" : "fill:white;"; });
 
 	// Clear the message bar
 	MessageBar.innerHTML = " ";
