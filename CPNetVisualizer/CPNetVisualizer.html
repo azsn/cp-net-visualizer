@@ -17,9 +17,10 @@
 			   Something to do with Firefox not waiting for the linked css files to load before loading everything else. */
 			.node {
 				cursor: default;
+				font-size: 12pt; /* Must be here for Safari */
 			}
 			.node-circle {
-				stroke-width: 1.5px;
+				stroke-width: 1px;
 				stroke: black;
 				fill: white;
 			}
@@ -29,16 +30,16 @@
 				marker-end: url(#end-arrow);
 			}
 			.node-name-text {
-				font-family: sans-serif;
-				font-size: 0.6em;
+				font-family: Helvetica, Arial, sans-serif;
+				font-size: 0.5em;
 				fill: black;
 				text-anchor: middle;
-				text-shadow: 0px 0px 8px white, 0px 0px 8px white, 0px 0px 8px white, 0px 0px 8px white, 0px 0px 8px white, 0px 0px 8px white, 0px 0px 8px white;
-				alignment-baseline: middle;
+				dominant-baseline: middle;
 				pointer-events: none;
 			}
 			.node-cpt-text {
-				font-size: 5pt;
+				text-anchor: start;
+				font-size: 0.3em;
 			}
 		</style>
 	</head>
@@ -47,7 +48,7 @@
 		<!-- Main SVG (background) -->
 		<div id="main-svg-dragger"></div>
 
-		<svg id="main-svg">
+		<svg id="main-svg" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 			<g id="main-svg-graph">
 				<g id="crosshair"> <!-- Center marker -->
 					<line x1="-5px" y1="0" x2="5px" y2="0px" />
@@ -56,6 +57,11 @@
 				<g id="aftercrosshair"></g> <!-- Create an empty child here to allow insertions immediately after the crosshair -->
 			</g>
 		</svg>
+
+		<div id="svgdataurl"></div>
+		<div id="pngdataurl"></div>
+		<canvas width="960" height="500" style="display:none"></canvas>
+
 
 		<!-- UI panels -->
 		<div class="panel" id="options-panel">
@@ -84,6 +90,7 @@
 			<input id="file-upload" type="file" style="display:none;"/>
 			<input type="button" value="Load CP-Net from File" onclick="LoadCPNetFromFile()"/>
 			<input type="button" value="Save CP-Net as XML" onclick="SaveCPNetAsXML()"/>
+			<input type="button" value="Save CP-Net as SVG" onclick="SaveCPNetAsSVG()"/>
 		</div>
 
 		<div class="panel" id="nodeinfo-panel">

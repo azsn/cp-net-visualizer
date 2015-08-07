@@ -215,7 +215,9 @@ function AllowCyclesCheckChanged()
 function ShowCPTsInGraphCheckChanged()
 {
 	ShowCPTsInGraph = ShowCPTsInGraphCheckbox.checked;
+	var PrevSaved = Saved; // UpdateGraph() sets saved to false
 	UpdateGraph();
+	Saved = PrevSaved;
 }
 
 function ManualDetectDegeneracy()
@@ -256,7 +258,7 @@ function DomainInputChanged() // set to onchange; only called when user is finis
 	SelectedNode.SetDomain(DomainListTextarea.value.split("\n").filter(function(el) {
 		return !isEmptyOrSpaces(el);
 	}));
-	UpdateGUI();
+	UpdateGraph();
 	SetSaved(false);
 }
 
@@ -548,6 +550,24 @@ function SaveCPNetAsXML()
 	SetSaved(true);
 }
 
+function SaveCPNetAsSVG()
+{
+	// Get the save name
+	var Name = CPNetNameInput.value;
+	if(isEmptyOrSpaces(Name))
+		Name = "cpnet";
+	
+	// Get the SVG HTML
+	var html = '<svg version="1.1" xmlns="http://www.w3.org/2000/svg">'
+					 + "<style type='text/css'> <![CDATA[.node { cursor: default; font-size: 12pt; } .node-circle { stroke-width: 1px; stroke: black; fill: white; } .link { stroke-width: 1.5px; opacity: 0.4; marker-end: url(#end-arrow); } .node-name-text { font-family: Helvetica, Arial, sans-serif; font-size: 0.5em; fill: black; text-anchor: middle; dominant-baseline: middle; pointer-events: none; } .node-cpt-text { text-anchor: start; font-size: 0.3em; }]]></style>"
+					 + d3.select("#main-svg").node().innerHTML
+					 + '</svg>';
+
+	// Save it
+	var blob = new Blob([html], {type: "text/plain;charset=utf-8"});
+	saveAs(blob, Name + ".svg"); // From the FileSaver.js API
+}
+
 // Load the default CPNet when the window finishes loading
 window.addEventListener('load', function() {
 	LoadDefaultCPNet();
@@ -564,10 +584,6 @@ function SelectNode(SelectedNode)
 {
 	window.SelectedNode = SelectedNode;
 	UpdateGUI();
-	
-	// if(SelectedNode)
-	// 	for(var i=0;i<SelectedNode.Parents.length;++i)
-	// 		console.log(SelectedNode.Parents[i].Name + "->" + SelectedNode.Name + " degenerate: " + SelectedNode.ParentIsDegenerate(i));
 }
 
 // Affixes a node so that it does not move (unless manually dragged)
@@ -685,54 +701,67 @@ function UpdateGraph()
 					 .append("g")
 					  .attr("class", "node")
 						.attr("n", function (node) { return node.Name; })
+						.style("cursor", "default")
 						.call(D3CoLa.drag); // Call this to allow the SVG element to be draggable by d3cola
 	SVGNodes.exit() // Gets a list of nodes that need to be removed
 					 .remove(); // Remove the old nodes that are no longer in the graph
 	
 	// Add visuals to node elements
-	SVGNodes.selectAll(".node-name-text").remove();
-	SVGNodes.selectAll(".node-cpt-text").remove();
-	SVGNodes.selectAll("title").remove();
+	SVGNodes.selectAll("*").remove(); // Clear the node before setting all its properties
 	SVGNodes.append("circle")
 					 .attr("class", "node-circle")
 					 .attr("r", function (node) { return node.radius; });
+	var NodeNameFontSize = 100;
 	SVGNodes.append("text")
 					 .attr("class", "node-name-text")
-					 .text(function(node) { var length = 10; return node.Name.length > length ? node.Name.substring(0, length) : node.Name; });
+					 .text(function(node) { var length = 10; return node.Name.length > length ? node.Name.substring(0, length) : node.Name; })
+					 .each(function(node) { // Set the size of the text to fit the node
+							var fontSize = parseFloat(d3.select(this).style("font-size")); // parseFloat gets rid of the px/em/etc at the end
+							fontSize *= Math.min(1, (node.radius*1.5) / this.getBBox().width); // scale the font size to fit in the node
+							if(fontSize < NodeNameFontSize) // find the smallest font size
+								NodeNameFontSize = fontSize;
+					 })
+					 .style("font-size", NodeNameFontSize + "px"); // Set them all to the smallest fontsize
 	SVGNodes.append("title")
 					 .text(function(node) { return node.Name; });
 	
 	if(ShowCPTsInGraph)
 	{
-		SVGNodes.append("foreignObject")
+		SVGNodes.append("text")
 						 .attr("class", "node-name-text node-cpt-text")
-						 .attr("x", function(node) { return (node.radius*2) + "px"; })
-						 .attr("width", "500px")
-						 .html(function(node) {
-								var cplist = node.ListCPT();
-								var cpliststring = "";
-								for(var i=0;i<Math.min(cplist.length, 4);++i)
+						 .each(function(node) {
+								var cpList = node.ListCPT();
+								var cpLines = [];
+								
+								for(var i=0;i<Math.min(cpList.length, 10);++i)
 								{
 									var conditionStr = "";
-									for(var j=0;j<cplist[i].condition.length;++j)
-										conditionStr += String.fromCharCode(97 + j) + (cplist[i].condition[j]+1);
+									for(var j=0;j<cpList[i].condition.length;++j)
+										conditionStr += String.fromCharCode(97 + j) + (cpList[i].condition[j]+1);
 									
 									var prefStr = "";
 									
-									for(var j=0;j<cplist[i].preference.length;++j)
+									for(var j=0;j<cpList[i].preference.length;++j)
 									{
 										if(j%2 === 1)
-											prefStr += (cplist[i].preference[j] ? " ≽ " : " ≻ ");
+											prefStr += (cpList[i].preference[j] ? " ≽ " : " ≻ ");
 										else
-											prefStr += node.Domain[cplist[i].preference[j] < 0 ? (-cplist[i].preference[j] - 1) : cplist[i].preference[j]];
+											prefStr += node.Domain[cpList[i].preference[j] < 0 ? (-cpList[i].preference[j] - 1) : cpList[i].preference[j]];
 									}
 									
 									if(conditionStr)
-										cpliststring += (i==0?"":"<br>") + conditionStr + ": " + prefStr;
+										cpLines.push(conditionStr + ": " + prefStr);
 									else
-										cpliststring += (i==0?"":"<br>") + prefStr;
+										cpLines.push(prefStr);
 								}
-								return cpliststring;
+								
+								d3.select(this).selectAll("tspan")
+											.data(cpLines)
+											.enter()
+											 .append("tspan")
+											  .attr("x", function() { return (node.radius*1.5) + "px"; })
+												.each(function(line, i) { d3.select(this).attr("y", (1.2*i)+"em"); })
+											  .text(function(line) { return line; });
 						 });
 	}
 	
