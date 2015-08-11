@@ -1,6 +1,7 @@
 // Vars
-var DefaultNodeRadius = 10; // const
-var MaxCPTEntriesBeforeManualDegeneracyDetection = 30000;
+var DefaultNodeRadius = 12; // const
+var SVGZoomSettings = {max:10, min:0.5, delta:0.1, def:3.5}; // const
+var MaxCPTEntriesBeforeManualDegeneracyDetection = 30000; // const
 var Linking = false;
 var SelectedNode = null;
 var Saved = true;
@@ -59,7 +60,7 @@ var MessageboxModalBackground = document.getElementById("messagebox-modal-backgr
 var SVGDragging = false;
 var SVGDragged = false;
 var SVGTranslation = [document.documentElement.clientWidth/2, document.documentElement.clientHeight/2];
-var SVGScale = 3;
+var SVGScale = SVGZoomSettings.def;
 D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 
 SVGDragger.onmousedown = function(event) { // SVG dragger mouse down
@@ -90,11 +91,11 @@ document.addEventListener('mousemove', function(event) { // Mouse move for every
 function OnScroll(event)
 {
 	var ScrollDelta = Math.max(-1, Math.min(1, (event.wheelDelta || -event.detail)));
-	SVGScale += ScrollDelta * 0.1;
-	if(SVGScale < 0.5)
-		SVGScale = 0.5;
-	else if(SVGScale > 10)
-		SVGScale = 10;
+	SVGScale += ScrollDelta * SVGZoomSettings.delta;
+	if(SVGScale < SVGZoomSettings.min)
+		SVGScale = SVGZoomSettings.min;
+	else if(SVGScale > SVGZoomSettings.max)
+		SVGScale = SVGZoomSettings.max;
 	D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 }
 
@@ -106,7 +107,7 @@ SVGDragger.addEventListener("mousewheel", OnScroll); // IE9, Chrome, Safari, Ope
 function CenterViewport()
 {
 	SVGTranslation = [document.documentElement.clientWidth/2, document.documentElement.clientHeight/2];
-	SVGScale = 3;
+	SVGScale = SVGZoomSettings.def;
 	D3Svg.attr("transform", "translate(" + SVGTranslation[0] + "," + SVGTranslation[1] + ") scale(" + SVGScale + ")");
 }
 
@@ -176,7 +177,7 @@ window.addEventListener('resize', function() {
 
 function AddNodeButtonClicked()
 {
-	var N = new Node((new Date()).getTime());
+	var N = new Node((new Date()).getTime().toString().slice(-6));
 	if(SelectedNode)
 		SelectedNode.LinkTo(N);
 	N.AddToGraph(GraphNodes);
@@ -946,7 +947,7 @@ function GenerateCPTHTML(Node)
 			conditionStr += String.fromCharCode(97 + j) + (CPList[i].condition[j]+1);
 
 		// Add the condition
-		HTML += "<tr> <td width='1px'> <p>" + conditionStr + ":&nbsp;&nbsp;</p> </td> <td>";
+		HTML += "<tr> <td width='1px'> <p class='cpt-table-item'>" + conditionStr + ":&nbsp;&nbsp;</p> </td> <td>";
 
 		// Add the preference
 		for(var j=0;j<CPList[i].preference.length;++j)

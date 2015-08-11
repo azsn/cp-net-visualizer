@@ -17,7 +17,7 @@
 			   Something to do with Firefox not waiting for the linked css files to load before loading everything else. */
 			.node {
 				cursor: default;
-				font-size: 12pt; /* Must be here for Safari */
+				font-size: 6pt; /* Must be here for Safari */
 			}
 			.node-circle {
 				stroke-width: 1px;
@@ -31,7 +31,6 @@
 			}
 			.node-name-text {
 				font-family: Helvetica, Arial, sans-serif;
-				font-size: 0.5em;
 				fill: black;
 				text-anchor: middle;
 				dominant-baseline: middle;
@@ -39,7 +38,7 @@
 			}
 			.node-cpt-text {
 				text-anchor: start;
-				font-size: 0.3em;
+				font-size: 0.7em;
 			}
 		</style>
 	</head>
@@ -77,7 +76,7 @@
 			<p class="header">options</p>
 			<input type="checkbox" id="allow-cycles-checkbox" onchange="AllowCyclesCheckChanged()"/> <p class="inlinetext">Allow Cycles</p><br>
 			<input type="checkbox" id="show-cpts-in-graph-checkbox" onchange="ShowCPTsInGraphCheckChanged()"/> <p class="inlinetext">Show CPTs in Graph</p><br>
-			<input type="number" id="max-in-nodes-selector" min=1 max=20 value=5 style="margin-top:0.3em;width:5em;" onchange="MaxInNodesSelectorChanged()"/> <p class="inlinetext">Max In-Nodes</p><br>
+			<input type="number" id="max-in-nodes-selector" min=1 max=20 value=5 style="margin-top:0.3em;width:3em;" onchange="MaxInNodesSelectorChanged()"/> <p class="inlinetext">Max In-Degree</p><br>
 			<div class="spacer"></div>
 
 			<p class="header" style="margin-bottom:0;">loading and saving</p>
