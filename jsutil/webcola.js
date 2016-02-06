@@ -22,6 +22,10 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //THE SOFTWARE.
 
+
+///// THIS FILE IS MODIFIED FOR CPNET VISUALIZER
+///// Look for the 'CPNetVisualizer edit' comments
+
 RBTree = (function (window) {
 var global = window;
 var require = function(name) {

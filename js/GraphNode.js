@@ -1,5 +1,22 @@
-var AllowCycles = false; // Can be set by GUI
-var MaxInNodes = 5; // Can be set by GUI
+//Copyright (C) 2016 Aidan Shafran
+//
+//Permission is hereby granted, free of charge, to any person obtaining a copy
+//of this software and associated documentation files (the "Software"), to deal
+//in the Software without restriction, including without limitation the rights
+//to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//copies of the Software, and to permit persons to whom the Software is
+//furnished to do so, subject to the following conditions:
+//
+//The above copyright notice and this permission notice shall be included in
+//all copies or substantial portions of the Software.
+//
+//THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+//THE SOFTWARE.
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // NODE CLASS
@@ -14,6 +31,7 @@ function Node(Name_)
 	this.CPT = []; // Multidimensional array. CPT[parent0-domain-index][parent1-domain-index][...][preference-order-index]
 	this.CPTListCache = null; // Cached list of the this.CPT multidimensional array. Lists every end value of this.CPT. Set to null whenever this.CPT changes.
 	this.DegeneracyCache = []; // Cached return value of IsParentDegenerate for each parent. Cleared when this.CPT changes (including preference changes).
+	this.HighlightedCPTRow = null; // For GUI to highlight a specific important row. Not set internally. Set to a CPT condition or null.
 	
 	// Sets this node's name
 	// Optionally, if GraphNodes is specified, does not set name and returns false if the given name matches any existing node name
@@ -185,11 +203,16 @@ function Node(Name_)
 	}
 
 	// Links this node to TargetNode and updates the TargetNode's CPT table
+	// AllowCycles defaults to false
+	// MaxInNodes is the limit to how many parents a node can have (defaults to unlimited)
 	// Returns "cycles not allowed" and does nothing if the link creates a cycle and cycles aren't allowed
 	// Returns "too many parents" and does nothing if the link creates too many parent nodes to TargetNode
 	// Returns true on success
-	this.LinkTo = function (TargetNode)
+	this.LinkTo = function (TargetNode, AllowCycles, MaxInNodes)
 	{
+		if(AllowCycles === 'undefined')
+			AllowCycles = false;
+			
 		// Validate nodes
 		if(!TargetNode)
 			return false;
@@ -199,7 +222,7 @@ function Node(Name_)
 			return true;
 
 		// Check for too many in-nodes
-		if(TargetNode.Parents.length + 1 > MaxInNodes)
+		if(MaxInNodes !== 'undefined' && TargetNode.Parents.length + 1 > MaxInNodes)
 			return "too many parents";
 
 		// Add the link
@@ -334,11 +357,22 @@ function Node(Name_)
 			return this.CPTListCache;
 
 		var NumParents = this.Parents.length;
+		var FoundHighlight = false;
+		var self = this;
 		var ListRecurse = function (CPTSection, Dimension)
 		{
 			if(Dimension.length >= NumParents)
-				return [{"condition":Dimension, "preference":CPTSection}];
-
+			{
+				var highlight = false;
+				if(self.HighlightedCPTRow && self.HighlightedCPTRow.constructor === Array && !FoundHighlight)
+				{
+					highlight = ShallowCompareArrays(self.HighlightedCPTRow, Dimension);
+					if(highlight) FoundHighlight = true;
+				}
+				
+				return [{"condition":Dimension, "preference":CPTSection, "highlight":highlight}];
+			}
+			
 			var List = [];
 			for(var i=0;i<CPTSection.length;++i)
 				List = List.concat(ListRecurse(CPTSection[i], Dimension.concat([i])));
@@ -510,6 +544,79 @@ function Node(Name_)
 		this.DegeneracyCache[ParentToTestIndex] = 1;
 		return 1;
 	}
+	
+	// Uses HTML and SVG tags to shorten domain names
+	this.GetShortenedDomain = function()
+	{
+		// Special case for boolean variables
+		if(this.Domain.length == 2)
+		{
+			if((this.Domain[0].toLowerCase() == "yes" && this.Domain[1].toLowerCase() == "no") ||
+				(this.Domain[0].toLowerCase() == "no" && this.Domain[1].toLowerCase() == "yes") ||
+				(this.Domain[0].toLowerCase() == "true" && this.Domain[1].toLowerCase() == "false") ||
+				(this.Domain[0].toLowerCase() == "false" && this.Domain[1].toLowerCase() == "true"))
+			{
+				var domain = [this.Name[0].toUpperCase(), this.Name[0].toUpperCase() + "&#773;"];
+				return {html: domain, svg: domain};
+			}
+		}
+		
+		var SHORTENED_LENGTH = 1;
+		
+		var Shortened = [];
+		for(var i=0;i<this.Domain.length;++i)
+		{
+			Shortened[i] = this.Domain[i].substring(0, SHORTENED_LENGTH);
+			Shortened[i] = Shortened[i][0].toUpperCase() + Shortened[i].substring(1);
+		}
+		
+		var FinalHTML = [];
+		var FinalSVG = [];
+		
+		for(var i=0;i<Shortened.length;++i)
+		{
+			if(typeof FinalHTML[i] !== 'undefined')
+				continue;
+				
+			var found = false;
+			for(var j=i+1;j<Shortened.length;++j)
+			{
+				if(Shortened[i]==Shortened[j])
+				{
+					found = true;
+					break;
+				}
+			}
+			
+			if(found)
+			{
+				var count = 0;
+				for(var j=i;j<Shortened.length;++j)
+				{
+					if(Shortened[i]==Shortened[j])
+					{
+						FinalHTML[j] = Shortened[j] + "<sub>"+count+"</sub>";
+						FinalSVG[j] = Shortened[j] + "<tspan baseline-shift='sub'>"+count+"</tspan>";
+						count++;
+					}
+				}
+			}
+			else
+			{
+				FinalHTML[i] = Shortened[i];
+				FinalSVG[i] = Shortened[i];
+			}
+		}
+		
+		return {html: FinalHTML, svg: FinalSVG};
+	}
+	
+	// this.GetConditionString = function(condition)
+	// {
+	// 	var conditionStr = "";
+	// 	for(var j=0;j<cpList[i].condition.length;++j)
+	// 		conditionStr += String.fromCharCode(97 + j) + (cpList[i].condition[j]+1);
+	// }
 
 	// Set default name and domain
 	this.SetName(Name_);
@@ -535,10 +642,31 @@ A preference statement:
 // UTILITY FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
+function getAllIndexes(arr, val) {
+	//http://stackoverflow.com/questions/20798477/how-to-find-index-of-all-occurrences-of-an-element-in-array
+    var indexes = [], i = -1;
+    while ((i = arr.indexOf(val, i+1)) != -1){
+        indexes.push(i);
+    }
+    return indexes;
+}
+
+function ShallowCompareArrays(a, b)
+{
+	if(a.length != b.length)
+		return false;
+		
+	for(var i=0;i<a.length;++i)
+		if(a[i] != b[i])
+			return false;
+			
+	return true;
+}
+
 // Duplicates a preference statement (the kind returned by Node.ListCPT())
 function DuplicatePreferenceStatement(PrefStatement)
 {
-	return {"condition":PrefStatement.condition.slice(0), "preference":PrefStatement.preference.slice(0)};
+	return {"condition":PrefStatement.condition.slice(0), "preference":PrefStatement.preference.slice(0), "highlight":PrefStatement.highlight};
 }
 
 // Makes a deep clone of a multidimensional CPT array
@@ -655,12 +783,6 @@ function XMLToGraph(XmlString)
 	if(!Root || !Root.childNodes || Root.childNodes.length <= 0)
 		return null;
 
-	// Allow anything to be imported
-	var DefaultMaxInNodes = MaxInNodes;
-	var DefaultAllowCycles = AllowCycles;
-	MaxInNodes = 20;
-	AllowCycles = true;
-	
 	// Vars
 	var GraphNodes = [];
 	var Errors = [];
@@ -769,7 +891,7 @@ readPreferenceStatementsLoop: // Loop label
 			if(conditionIndex < 0) { Errors.push("Invalid value on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID); continue readPreferenceStatementsLoop; }
 
 			// Add the condition to the node
-			var linkStatus = conditionCausingNode.LinkTo(affectingNode);
+			var linkStatus = conditionCausingNode.LinkTo(affectingNode, true);
 			if(linkStatus !== true) { Errors.push("Unlinkable node on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID + "because: " + linkStatus); continue readPreferenceStatementsLoop; }
 			condition[affectingNode.Parents.indexOf(conditionCausingNode)] = conditionIndex;
 		}
@@ -780,8 +902,6 @@ readPreferenceStatementsLoop: // Loop label
 		affectingNode.SetPreference(condition, preference);
 	}
 
-	AllowCycles = DefaultAllowCycles;
-	MaxInNodes = DefaultMaxInNodes;
 	return {nodes:GraphNodes, errors:Errors};
 }
 
