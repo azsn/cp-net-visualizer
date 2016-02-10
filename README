@@ -1,4 +1,6 @@
-Web-based software to visualize and edit conditional preference (CP) nets.
+This is Web-based software to visualize and edit conditional preference (CP) nets.
+
+CP-nets are a formalism for modeling qualitative preferences under the ceteris paribus ("all other things being equal") semantics. They model preferences over multi-featured domains, and allow to express conditional preferences, e.g., "If I have a sports car I want a V8 engine, but if I have a small car, I want a hybrid engine."
 
 A description of CP-Nets can be found here:
 https://www.jair.org/media/1234/live-1234-2225-jair.pdf
