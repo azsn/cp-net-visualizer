@@ -26,6 +26,7 @@ var AffixNodeButton = document.getElementById("affix-node-button");
 var AllowCyclesCheckbox = document.getElementById("allow-cycles-checkbox");
 var ShowCPTsInGraphCheckbox = document.getElementById("show-cpts-in-graph-checkbox");
 var MaxInNodesSelector = document.getElementById("max-in-nodes-selector");
+var NodeSpacingSelector = document.getElementById("node-spacing-selector");
 
 
 function AddNodeButtonClicked()
@@ -77,6 +78,10 @@ function MaxInNodesSelectorChanged()
 	Graph.MaxInNodes = MaxInNodesSelector.value;
 }
 
+function NodeSpacingSelectorChanged()
+{
+	Graph.SetSpacing(NodeSpacingSelector.value);
+}
 
 // Graph callbacks
 
