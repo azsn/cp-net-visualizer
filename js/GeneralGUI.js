@@ -87,3 +87,11 @@ function LoadFile(Callback)
   
   return true;
 }
+
+// Returns true if this code is running in GitHub's Electron or not (otherwise, probably a regular browser)
+// If this is running in Electron, some parts of this program have extra features.
+// The main parts of the Visualizer will run fine without Electron, however.
+function IsRunningElectron()
+{
+  return typeof(process) !== 'undefined' && typeof(process.versions['electron']) !== 'undefined';
+}
