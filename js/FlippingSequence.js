@@ -94,9 +94,9 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 	// }
 
 	ShowMessageBox(div.html(), ["Cancel", "Okay"], function(b) {
-		if(b !== "Okay")
+		if(b !== "Okay" && b !== "_ENTER_")
 			return;
-			
+		
 		// Generate query XML
 		var QueryXML = "<?xml version='1.0' encoding='us-ascii'?>\n<PREFERENCE-QUERY>\n";
 		QueryXML +=    "  <PREFERENCE-SPECIFICATION-FILENAME>%PREF_SPEC_NAME%</PREFERENCE-SPECIFICATION-FILENAME>\n"
@@ -121,7 +121,7 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 		QueryXML += "</PREFERENCE-QUERY>\n";
 		
 		ShowMessageBox("Calculating flipping sequence...", ["Stop"], function(x) {
-			if(x == "Stop")
+			if(x == "Stop" || x == "_ESC_" || x == "_ENTER_")
 				dtstar.stopGenerateProof();
 		});
 

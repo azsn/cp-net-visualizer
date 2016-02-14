@@ -40,7 +40,7 @@ function AskForOverwrite(Func)
 		ShowMessageBox("The current CP-Net is unsaved. Do you really want to discard any unsaved changes and load a new CP-Net?",
 			["No", "Yes"],
 			function(button) {
-				if(button === "Yes")
+				if(button === "Yes" || button === "_ENTER_")
 					Func();
 			});
 	}

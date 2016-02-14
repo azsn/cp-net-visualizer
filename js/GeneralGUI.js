@@ -29,6 +29,8 @@ function ShowMessageBox(BodyHTML, Buttons, OnButtonClick)
 		});
   }
   
+  MessageBox.node().focus();
+  
   MessageBoxCurrent = MessageBox;
   MessageBoxCurrentModalBackground = MessageBoxModalBackground;
   MessageBoxCurrentCallback = OnButtonClick;
@@ -58,6 +60,21 @@ function CloseMessageBox()
 window.addEventListener('resize', function() {
 	RepositionMessageBox();
 }, false);
+
+window.addEventListener('keydown', function (e) {
+  var key = e.which || e.keyCode;
+  if(MessageBoxCurrent)
+  {
+    if(key === 13 || key === 27) // 13 enter, 27 esc
+    {
+      var close = true;
+      if(typeof MessageBoxCurrentCallback === 'function' && MessageBoxCurrentCallback((key === 13) ? "_ENTER_" : "_ESC_"))
+        close = false;
+      if(close)
+        CloseMessageBox();
+    }
+  }
+});
 
 
 
