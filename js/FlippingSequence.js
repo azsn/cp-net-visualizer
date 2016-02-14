@@ -94,9 +94,9 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 	// }
 
 	ShowMessageBox(div.html(), ["Cancel", "Okay"], function(b) {
-		if(b !== "Okay")
+		if(b !== "Okay" && b !== "_ENTER_")
 			return;
-			
+		
 		// Generate query XML
 		var QueryXML = "<?xml version='1.0' encoding='us-ascii'?>\n<PREFERENCE-QUERY>\n";
 		QueryXML +=    "  <PREFERENCE-SPECIFICATION-FILENAME>%PREF_SPEC_NAME%</PREFERENCE-SPECIFICATION-FILENAME>\n"
@@ -111,17 +111,37 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 			{
 				QueryXML += "    <ASSIGNMENT>\n";
 				QueryXML += "      <PREFERENCE-VARIABLE>" + Graph.Nodes[j].Name + "</PREFERENCE-VARIABLE>\n";
-				QueryXML += "      <VALUATION>" + d3.select("#flipseqselector_node" + j + "_end" + i).node().value + "</PREFERENCE-VARIABLE>\n";
+				QueryXML += "      <VALUATION>" + d3.select("#flipseqselector_node" + j + "_end" + i).node().value + "</VALUATION>\n";
 				QueryXML += "    </ASSIGNMENT>\n";
 			}
 			
 			QueryXML += "  </OUTCOME>\n";
-			QueryXML += "</PREFERENCE-QUERY>\n";
 		}
 		
+		QueryXML += "</PREFERENCE-QUERY>\n";
+		
+		ShowMessageBox("Calculating flipping sequence...", ["Stop"], function(x) {
+			if(x == "Stop" || x == "_ESC_" || x == "_ENTER_")
+				dtstar.stopGenerateProof();
+		});
+
 		var GraphXML = GraphToXML(Graph.Nodes);
-		// TODO: Some kind of loading message box here
-		dtstar.generateProof(QueryXML, GraphXML, function(contents) {
+		
+		dtstar.generateProof(QueryXML, GraphXML, function(e, contents) {
+			CloseMessageBox();
+			
+			if(e == "STOPPED") {
+				return;
+			}
+			else if(e == "DTERROR") {
+				ShowMessageBox(contents);
+				return;
+			}
+			else if(e) {
+				ShowMessageBox("An error occurred while running DT*. The JavaScript console might help.");
+				return;
+			}
+			
 			var flippingSequence = XMLToFlippingSequence(contents, Graph.Nodes);
 			
 			if(flippingSequence && flippingSequence.constructor === Array)
@@ -130,10 +150,15 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 			}
 			else
 			{
-				if(!flippingSequence) flippingSequence = "Unable to load flipping sequence file due to bad XML.";
-				ShowMessageBox("Error loading flipping sequence:<br>" + flippingSequence);
+				if(flippingSequence === false)
+					ShowMessageBox("The given query has no flipping sequence.");
+				else if(!flippingSequence)
+					ShowMessageBox("Error loading flipping sequence:<br>Bad XML.");
+				else
+					ShowMessageBox("Error loading flipping sequence:<br>" + flippingSequence);
 			}
 		});
+		return true; // Don't close the message box automatically, otherwise the "calculating.." box gets closed immediately.
 	});
 }
 
@@ -148,8 +173,12 @@ function LoadFlippingSequenceXMLFromFile()
 		}
 		else
 		{
-			if(!flippingSequence) flippingSequence = "Unable to load flipping sequence file due to bad XML.";
-			ShowMessageBox("Error loading flipping sequence:<br>" + flippingSequence);
+			if(flippingSequence === false)
+				ShowMessageBox("The given proof has no flipping sequence.");
+			else if(!flippingSequence)
+				ShowMessageBox("Error loading flipping sequence:<br>Bad XML.");
+			else
+				ShowMessageBox("Error loading flipping sequence:<br>" + flippingSequence);
 		}
 	});
 }
@@ -266,6 +295,10 @@ function XMLToFlippingSequence(XmlString, Nodes)
 
 	if(!Root.childNodes || Root.childNodes.length <= 0)
 		return null;
+
+	var Result = Root.getElementsByTagName("RESULT")[0];
+	if(Result.textContent != "true")
+		return false;
 
 	Root = Root.getElementsByTagName("PROOF")[0];
 	if(!Root || !Root.childNodes || Root.childNodes.length <= 0)

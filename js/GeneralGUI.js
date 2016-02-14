@@ -1,7 +1,10 @@
-var CurrentMessageBox = null;
+var MessageBoxCurrent = null;
+var MessageBoxCurrentModalBackground = null;
+var MessageBoxCurrentCallback = null;
 
 function ShowMessageBox(BodyHTML, Buttons, OnButtonClick)
 {
+  CloseMessageBox();
   var MessageBoxModalBackground = d3.select('body').append('div').attr('class', "messagebox-modal-background");
   var MessageBox = d3.select('body').append('div').attr('class', "messagebox");
   
@@ -18,29 +21,60 @@ function ShowMessageBox(BodyHTML, Buttons, OnButtonClick)
     var button = ButtonList.append('input').attr('type', 'button').attr('value', Buttons[i]);
     
     button.on('click', function() {
-      if(typeof OnButtonClick === 'function') OnButtonClick(this.value);
-			MessageBox.remove();
-			MessageBoxModalBackground.remove();
-			CurrentMessageBox = null;
+      var close = true;
+      if(typeof OnButtonClick === 'function' && OnButtonClick(this.value))
+          close = false;
+      if(close)
+        CloseMessageBox();
 		});
   }
   
-  CurrentMessageBox = MessageBox;
+  MessageBox.node().focus();
+  
+  MessageBoxCurrent = MessageBox;
+  MessageBoxCurrentModalBackground = MessageBoxModalBackground;
+  MessageBoxCurrentCallback = OnButtonClick;
 	RepositionMessageBox();
 }
 
 function RepositionMessageBox()
 {
-	if(!CurrentMessageBox)
+	if(!MessageBoxCurrent)
 		return;
     
-	CurrentMessageBox.style('top', (document.documentElement.clientHeight/2 - CurrentMessageBox.node().clientHeight/2) + 'px')
-                   .style('left', (document.documentElement.clientWidth/2 - CurrentMessageBox.node().clientWidth/2) + 'px');
+	MessageBoxCurrent.style('top', (document.documentElement.clientHeight/2 - MessageBoxCurrent.node().clientHeight/2) + 'px')
+                   .style('left', (document.documentElement.clientWidth/2 - MessageBoxCurrent.node().clientWidth/2) + 'px');
+}
+
+function CloseMessageBox()
+{
+  if(MessageBoxCurrent)
+    MessageBoxCurrent.remove();
+  if(MessageBoxCurrentModalBackground)
+    MessageBoxCurrentModalBackground.remove();
+  MessageBoxCurrent = null;
+  MessageBoxCurrentModalBackground = null;
+  MessageBoxCurrentCallback = null;
 }
 
 window.addEventListener('resize', function() {
 	RepositionMessageBox();
 }, false);
+
+window.addEventListener('keydown', function (e) {
+  var key = e.which || e.keyCode;
+  if(MessageBoxCurrent)
+  {
+    if(key === 13 || key === 27) // 13 enter, 27 esc
+    {
+      var close = true;
+      if(typeof MessageBoxCurrentCallback === 'function' && MessageBoxCurrentCallback((key === 13) ? "_ENTER_" : "_ESC_"))
+        close = false;
+      if(close)
+        CloseMessageBox();
+    }
+  }
+});
 
 
 
