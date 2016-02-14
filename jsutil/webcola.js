@@ -1486,7 +1486,7 @@ var cola;
                     // close event
                     scanline.remove(v);
                     var makeConstraint = function (l, r) {
-                        var sep = (rect.getSize(l.r) + rect.getSize(r.r)) / 2 + minSep;
+                        var sep = (rect.getSize(l.r)+rect.getSize(r.r))/2 + minSep;
                         cs.push(new vpsc.Constraint(l.v, r.v, sep));
                     };
                     var visitNeighbours = function (forward, reverse, mkcon) {
@@ -1666,7 +1666,8 @@ var cola;
                 this.project(x0, y0, x0, x, function (v) { return v.px; }, this.xConstraints, generateXGroupConstraints, function (v) { return v.bounds.setXCentre(x[v.variable.index] = v.variable.position()); }, function (g) {
                     var xmin = x[g.minVar.index] = g.minVar.position();
                     var xmax = x[g.maxVar.index] = g.maxVar.position();
-                    var p2 = g.padding / 2;
+                    //var p2 = g.padding / 2;
+                    var p2 = g.padding * 10;
                     g.bounds.x = xmin - p2;
                     g.bounds.X = xmax + p2;
                 });
