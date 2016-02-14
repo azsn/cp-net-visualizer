@@ -72,6 +72,7 @@
 			<input type="checkbox" id="allow-cycles-checkbox" onchange="AllowCyclesCheckChanged()"/> <p class="inlinetext">Allow Cycles</p><br>
 			<input type="checkbox" id="show-cpts-in-graph-checkbox" onchange="ShowCPTsInGraphCheckChanged()"/> <p class="inlinetext">Show CPTs in Graph</p><br>
 			<input type="number" id="max-in-nodes-selector" min=1 max=20 value=5 style="margin-top:0.3em;width:3em;" onchange="MaxInNodesSelectorChanged()"/> <p class="inlinetext">Max In-Degree</p><br>
+			<input type="number" id="node-spacing-selector" min=5 max=40 value=12 style="margin-top:0.3em;width:3em;" onchange="NodeSpacingSelectorChanged()"/> <p class="inlinetext">Node Spacing</p><br>
 			<div class="spacer"></div>
 
 			<p class="header" style="margin-bottom:0;">loading and saving</p>
@@ -88,7 +89,7 @@
 			<div class="spacer"></div>
 
 			<p class="header">utilities</p>
-			<input type="button" value="Visualize Flipping Sequence" onclick="LoadFlippingSequenceXMLFromFile()"/>
+			<input type="button" value="Visualize Flipping Sequence" onclick="VisualizeFlippingSequence()"/>
 		</div>
 
 		<div class="panel" id="nodeinfo-panel">

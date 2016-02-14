@@ -31,7 +31,7 @@ function GraphSVG(RootDivID)
 	this.Svg = SvgContainer.Body;
 	
 	// Initialize d3cola and the SVG
-	var Cola = cola.d3adaptor().avoidOverlaps(true).flowLayout("y", 60).symmetricDiffLinkLengths(12).handleDisconnected(false);
+	var Cola = cola.d3adaptor().avoidOverlaps(true).flowLayout("y", 60).handleDisconnected(false);
 	this.Svg.append('svg:defs') // Define arrow markers for graph links
 			  .append('svg:marker')
 			   .attr('id', 'end-arrow')
@@ -56,6 +56,7 @@ function GraphSVG(RootDivID)
 	var ShowCPTs = false;
 	var Init
 	var SelectionColor = DEFAULT_SELECTION_COLOR;
+	var Spacing = 12;
 	this.Nodes = [];
 	this.AllowCycles = false;
 	this.MaxInNodes = 5;
@@ -83,9 +84,13 @@ function GraphSVG(RootDivID)
 	// Getters
 	this.GetSelectedNode = function() { return SelectedNode; }
 	this.GetIsLinking = function() { return Linking; }
-	this.SetShowCPTs = function(Show) { ShowCPTs = Show; this.UpdateNodeCPTs(); }
+	this.SetShowCPTs = function(Show)	{ ShowCPTs = Show; this.UpdateNodeCPTs(); this.SetSpacing(this.GetSpacing()); }
 	this.GetShowCPTs = function() { return ShowCPTs; }
 	this.SetSelectionColor = function(color) { SelectionColor = (color == null ? DEFAULT_SELECTION_COLOR : color) ; UpdateGUI(); }
+	this.SetSpacing = function(s) { Spacing = s; Cola.symmetricDiffLinkLengths(s * (ShowCPTs ? 1.5 : 1)); Cola.start(); UpdateGUI(); }
+	this.GetSpacing = function() { return Spacing; }
+	
+	Cola.symmetricDiffLinkLengths(Spacing);
 	
 	// Selects SelectedNode and unselects all other nodes. Specify null to unselect everything
 	this.SelectNode = function(Node)
@@ -310,7 +315,14 @@ function GraphSVG(RootDivID)
 	var UpdateGUI = function()
 	{
 		self.Svg.selectAll(".node-circle").attr("style", function (node) { return node === SelectedNode ? "fill:" + SelectionColor + ";" : "fill:white;"; });
-
+		
+		self.Svg.selectAll(".link").each(function(link) {
+			if(link.source == SelectedNode)
+				d3.select(this).style("opacity", 1);
+			else
+				d3.select(this).style("opacity", 0.4);
+		});
+		
 		for(var i=0;i<UpdateGUICallbacks.length;++i)
 			UpdateGUICallbacks[i].func();
 	}

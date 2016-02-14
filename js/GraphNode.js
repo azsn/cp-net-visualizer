@@ -32,6 +32,7 @@ function Node(Name_)
 	this.CPTListCache = null; // Cached list of the this.CPT multidimensional array. Lists every end value of this.CPT. Set to null whenever this.CPT changes.
 	this.DegeneracyCache = []; // Cached return value of IsParentDegenerate for each parent. Cleared when this.CPT changes (including preference changes).
 	this.HighlightedCPTRow = null; // For GUI to highlight a specific important row. Not set internally. Set to a CPT condition or null.
+	this.RowCache = null;
 	
 	// Sets this node's name
 	// Optionally, if GraphNodes is specified, does not set name and returns false if the given name matches any existing node name
@@ -253,7 +254,8 @@ function Node(Name_)
 		});
 		TargetNode.CPTListCache = null;
 		TargetNode.DegeneracyCache = [];
-		
+		TargetNode.RowCache = null;
+
 		return true;
 	}
 
@@ -286,6 +288,7 @@ function Node(Name_)
 		});
 		TargetNode.CPTListCache = null;
 		TargetNode.DegeneracyCache = [];
+		TargetNode.RowCache = null;
 	}
 
 	// Returns true if this node is a parent of TargetNode
@@ -543,6 +546,23 @@ function Node(Name_)
 		
 		this.DegeneracyCache[ParentToTestIndex] = 1;
 		return 1;
+	}
+	
+	this.GetRow = function()
+	{
+		if(this.RowCache !== null)
+			return this.RowCache;
+			
+		var LargestRow = 0;
+		for(var i=0;i<this.Parents.length;++i)
+		{
+			var row = this.Parents[i].GetRow() + 1;
+			if(row > LargestRow)
+				LargestRow = row;
+		}
+		
+		this.RowCache = LargestRow;
+		return this.RowCache;
 	}
 	
 	// Uses HTML and SVG tags to shorten domain names
@@ -876,6 +896,7 @@ readPreferenceStatementsLoop: // Loop label
 		// Get the condition
 		var condition = [];
 		var conditions = Root.childNodes[i].getElementsByTagName("CONDITION");
+		var z = [];
 		for(var j=0;j<conditions.length;++j)
 		{
 			// There is a condition; split it by the equals sign to get [condition-causing node name, value]
@@ -893,10 +914,18 @@ readPreferenceStatementsLoop: // Loop label
 			// Add the condition to the node
 			var linkStatus = conditionCausingNode.LinkTo(affectingNode, true);
 			if(linkStatus !== true) { Errors.push("Unlinkable node on CONDITION " + j + " on PREFERENCE-STATEMENT " + statementID + "because: " + linkStatus); continue readPreferenceStatementsLoop; }
-			condition[affectingNode.Parents.indexOf(conditionCausingNode)] = conditionIndex;
+			
+			z.push([conditionCausingNode, conditionIndex]);
+			// condition[affectingNode.Parents.indexOf(conditionCausingNode)] = conditionIndex;
 		}
 
-		if(condition.length != affectingNode.Parents.length) { Errors.push("Unknown error building condition on PREFERENCE-STATEMENT " + statementID); continue; }
+		// QUICK FIX: LinkTo sorts the parent node as it inserts it, so
+		// the indexOf might return the same number twice if the node wasn't inserted at the end.
+		// SO, just wait until all the parents are linked up before setting the condition.
+		for(var j=0;j<z.length;++j)
+			condition[affectingNode.Parents.indexOf(z[j][0])] = z[j][1];
+
+		if(condition.length != affectingNode.Parents.length) { Errors.push("Unknown error building condition on PREFERENCE-STATEMENT " + statementID + ", " + condition.length + ", " + affectingNode.Parents.length + ", " + affectingNode.Name); continue; }
 
 		// Set the preference on the affecting node
 		affectingNode.SetPreference(condition, preference);

@@ -1,0 +1,16 @@
+{
+  "name": "cp-net-visualizer",
+  "version": "1.0.0",
+  "description": "It visualizes CP-Nets",
+  "main": "electron-main.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zelbrium/cp-net-visualizer"
+  },
+  "author": {
+    "name": "Aidan Shafran",
+    "email": "zelbrium@gmail.com",
+    "url": "http://www.aidanshafran.com"
+  },
+  "license": "MIT"
+}
