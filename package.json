@@ -7,6 +7,10 @@
     "type": "git",
     "url": "git+https://github.com/zelbrium/cp-net-visualizer"
   },
-  "author": "Aidan Shafran",
+  "author": {
+    "name": "Aidan Shafran",
+    "email": "zelbrium@gmail.com",
+    "url": "http://www.aidanshafran.com"
+  },
   "license": "MIT"
 }
