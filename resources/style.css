@@ -110,6 +110,8 @@ Message bar and message box panel
 	opacity: 0.95;
 	padding: 0.6em;
 	max-width: 500px;
+	max-height: 800px;
+	overflow-y:auto;
 }
 .messagebox-header
 {
