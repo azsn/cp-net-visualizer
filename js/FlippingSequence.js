@@ -111,14 +111,14 @@ function GenerateAndLoadFlippingSequence() // This function requires Electron
 			{
 				QueryXML += "    <ASSIGNMENT>\n";
 				QueryXML += "      <PREFERENCE-VARIABLE>" + Graph.Nodes[j].Name + "</PREFERENCE-VARIABLE>\n";
-				QueryXML += "      <VALUATION>" + d3.select("#flipseqselector_node" + j + "_end" + i).node().value + "</PREFERENCE-VARIABLE>\n";
+				QueryXML += "      <VALUATION>" + d3.select("#flipseqselector_node" + j + "_end" + i).node().value + "</VALUATION>\n";
 				QueryXML += "    </ASSIGNMENT>\n";
 			}
 			
 			QueryXML += "  </OUTCOME>\n";
-			QueryXML += "</PREFERENCE-QUERY>\n";
 		}
 		
+		QueryXML += "</PREFERENCE-QUERY>\n";
 		var GraphXML = GraphToXML(Graph.Nodes);
 		// TODO: Some kind of loading message box here
 		dtstar.generateProof(QueryXML, GraphXML, function(contents) {
