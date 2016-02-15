@@ -18,8 +18,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //THE SOFTWARE.
 
-// TODO: Linking creates mouse-following arrow
-
 function GraphSVG(RootDivID)
 {
 	var self = this;
@@ -360,7 +358,7 @@ function GraphSVG(RootDivID)
 				d3.select(this).append("text")
 					.attr('class', "node-name-text " + (cpList[i].highlight ? "node-cpt-highlighted-text" : "node-cpt-text"))
 					.attr('x', (node.radius*1.5) + "px")
-					.attr('y', (1.2*i)+"em")
+					.attr('y', (6*i)+"px") // TODO: Using px instead of em here fixes some rendering issues for poorer SVG renders, but also isn't very portable. Fix? 
 					.html(line);
 			}
 		});
@@ -380,7 +378,7 @@ function DraggableSVG()
 	self.Body = self.Svg.append('g');
 	
 	// Consts
-	var ZOOM_RANGE = {max:10, min:0.5, delta:0.1, def:3.5};
+	var ZOOM_RANGE = {max:10, min:0.5, delta:0.02, def:3.5};
 	
 	// Vars
 	self.State = 0; // 0: nothing, 1: mouse down, 2: dragging (once dragging starts, stays at 2 until mouse is released)
@@ -421,10 +419,12 @@ function DraggableSVG()
 	}, false);
 	
 	// Scrolling
-	function OnScroll(event)
+	function OnScroll()
 	{
-		var ScrollDelta = Math.max(-1, Math.min(1, d3.event.wheelDeltaY));
-		Scale += ScrollDelta * ZOOM_RANGE.delta;
+		d3.event.stopPropagation();
+		d3.event.preventDefault();
+
+	 	Scale += Math.max(-1, Math.min(1, d3.event.wheelDeltaY)) * Scale * ZOOM_RANGE.delta;
 		if(Scale < ZOOM_RANGE.min) Scale = ZOOM_RANGE.min;
 		else if(Scale > ZOOM_RANGE.max) Scale = ZOOM_RANGE.max;
 		self.Body.attr("transform", "translate(" + Translation[0] + "," + Translation[1] + ") scale(" + Scale + ")");

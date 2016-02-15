@@ -170,7 +170,7 @@ function SaveCPNetAsSVG()
 		Name = "cpnet";
 	
 	// Get the SVG HTML
-	var html = '<svg version="1.1" xmlns="http://www.w3.org/2000/svg">'
+	var html = '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + document.documentElement.clientWidth + " " + document.documentElement.clientHeight + '">'
 					 + "<style type='text/css'> <![CDATA[.node { cursor: default; font-size: 12pt; } .node-circle { stroke-width: 1px; stroke: black; fill: white; } .link, .linking-arrow { stroke-width: 1.5px; opacity: 0.4; marker-end: url(#end-arrow); } .linking-arrow { stroke: #7585CF; } .node-name-text { font-family: Helvetica, Arial, sans-serif; font-size: 0.5em; fill: black; text-anchor: middle; dominant-baseline: middle; pointer-events: none; } .node-cpt-text { text-anchor: start; font-size: 0.3em; } .node-cpt-highlighted-text { text-anchor: start; font-size: 0.7em; fill: #7585CF; font-weight: bold; }]]></style>"
 					 + Graph.SvgRoot.node().innerHTML
 					 + '</svg>';
