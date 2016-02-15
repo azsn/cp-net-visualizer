@@ -282,6 +282,7 @@ function GraphSVG(RootDivID)
 
 		// Update the d3cola tick function
 		Cola.on("tick", function () {
+		    //TODO-SAM TRY ENFORCING SPACING RULES HERE - IF NEEDED
 			SVGNodes.attr("transform", function (node) { return "translate(" + node.x + "," + node.y + ")"; }); // Update the positions of the SVG node elements
 
 			SVGLinks.attr('d', function (link) { // Lots of stuff from the original d3cola force-directed graph example. Positions the SVG link elements, it seems
