@@ -52,11 +52,39 @@ function OrderQuery(){
             if(out0X != out1X){
                 //Check to see if they match on their parents.
                 var parentList = Graph.Nodes[j].Parents;
+                var parentDomainIndices = [];
                 var matchesSoFar = true;
                 for(var parent = 0; parent < parentList.length; parent++){
                     var parentIndex = getNodeIndex(parentList[parent].Name);
                     if(outcomes[0][parentIndex]!=outcomes[1][parentIndex]){
-                        
+                        matchesSoFar = false;
+                    } else {
+                        parentDomainIndices.push(parentList[parent].Domain.indexOf(outcomes[0][parentIndex]));
+                    }
+                }
+                if(matchesSoFar){
+                    //Check whether which one is preferred according to the CPT for node at index j
+                    //Determine Domain Indices
+                    var domainIndex0 = Graph.Nodes[j].Domain.indexOf(out0X);
+                    var domainIndex1 = Graph.Nodes[j].Domain.indexOf(out1X);
+                    var prefIndex0;
+                    var prefIndex1;
+                    var CPTRow = Graph.Nodes[j].CPT;
+                    for(var parent=0; parent<parentDomainIndices.length; parent++){
+                        CPTRow = CPTRow[parentDomainIndices[parent]];
+                    }
+                    for(var prefIndex = 0; prefIndex < CPTRow.length; prefIndex+=2){
+                        if(CPTRow[prefIndex]==domainIndex0){
+                            prefIndex0 = prefIndex;
+                        }
+                        if(CPTRow[prefIndex]==domainIndex1){
+                            prefIndex1 = prefIndex;
+                        }
+                    }
+                    if(prefIndex0<prefIndex1){
+                        outcome0NotNecessarilyWorse=true;
+                    } else if(prefIndex1<prefIndex0){
+                        outcome1NotNecessarilyWorse=true;
                     }
                 }
             } // else the two are equal and no information is gained.
