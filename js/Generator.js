@@ -22,14 +22,14 @@ function GenerateCPNet()
 {
 	if(!IsRunningElectron())
   {
-    ShowMessageBox("CP-Net generation is only available when running in Electron. Otherwise, you must run gencpnet manually.");
+    ShowMessageBox("CP-net generation is only available when running in Electron. Otherwise, you must run gencpnet manually.");
     return;
   }
 
   var gencpnet = require('gencpnet');
 
   var div = d3.select(document.createElement('div'));
-  div.append('p').text("Enter parameters for the generated CP-Net.")
+  div.append('p').text("Enter parameters for the generated CP-net.")
   
   var rootTable = div.append('center').append('table').style('margin-bottom', "1.3em");
   
@@ -93,7 +93,7 @@ function GenerateCPNet()
 			}
 			else
 			{
-				ShowMessageBox("Unable to load generated CP-Net due to bad XML.");
+				ShowMessageBox("Unable to load generated CP-net due to bad XML.");
 			}
     });
     return true; // Don't close the message box automatically, otherwise the "calculating.." box gets closed immediately.

@@ -37,7 +37,7 @@ function AskForOverwrite(Func)
 	}
 	else
 	{
-		ShowMessageBox("The current CP-Net is unsaved. Do you really want to discard any unsaved changes and load a new CP-Net?",
+		ShowMessageBox("The current CP-net is unsaved. Do you really want to discard any unsaved changes and load a new CP-net?",
 			["No", "Yes"],
 			function(button) {
 				if(button === "Yes" || button === "_ENTER_")
@@ -190,7 +190,7 @@ window.addEventListener("beforeunload", function (e) {
   if(Saved)
     return undefined;
     
-  var confirmationMessage = "This CP-Net is unsaved. Your changes will be lost if you exit now!";
+  var confirmationMessage = "This CP-net is unsaved. Your changes will be lost if you exit now!";
 
   (e || window.event).returnValue = confirmationMessage; //Gecko + IE
   return confirmationMessage; //Gecko + Webkit, Safari, Chrome etc.
