@@ -94,13 +94,13 @@ function OrderQuery(){
         var div = d3.select(document.createElement('div'));
         div.append('h2').text("The Ordering Query Showed That:");
         if(outcome0NotNecessarilyWorse){
-            div.append('p').text(outcomeString(outcomes[0]) + " is permitted by the CP-net to be preferred to " + outcomeString(outcomes[1]));
+            div.append('p').html(outcomeString(outcomes[0]) + " <br>is permitted by the CP-net to be preferred to <br>" + outcomeString(outcomes[1])+"<br><br>");
         }
         if(outcome1NotNecessarilyWorse){
-            div.append('p').text(outcomeString(outcomes[1]) + " is permitted by the CP-net to be preferred to " + outcomeString(outcomes[0]));
+            div.append('p').html(outcomeString(outcomes[1]) + " <br>is permitted by the CP-net to be preferred to <br>" + outcomeString(outcomes[0])+"<br><br>");
         }
         if(!outcome0NotNecessarilyWorse && !outcome1NotNecessarilyWorse){
-            div.append('p').text("The given outcomes " + outcomeString(outcomes[0]) + " and " + outcomeString(outcomes[1]) + " are identical.");
+            div.append('p').html("The given outcomes <br>" + outcomeString(outcomes[0]) + " <br>and <br>" + outcomeString(outcomes[1]) + " <br>are identical.<br><br>");
         }
         ShowMessageBox(div.html(), ["Okay"], function(b){});
         return true;
